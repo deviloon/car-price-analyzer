@@ -18,9 +18,9 @@ lib64/
 parts/
 sdist/
 var/
-/data/*
-!/data/processed/
-!/data/processed/*
+data/*
+!data/processed/
+!data/processed/*
 wheels/
 share/python-wheels/
 *.egg-info/
