@@ -1,0 +1,28 @@
+artifact_path: "file:c:/Users/\u0421\u0442\u0435\u043F\u0430\u043D/Desktop/car-price-analyzer/notebooks/mlruns/1/models/m-7822e30b5e1c413894a50bfd88eddc17/artifacts"
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.14.6
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: pickle
+    sklearn_version: 1.9.0
+    skops_trusted_types: null
+mlflow_version: 3.14.0
+model_id: m-7822e30b5e1c413894a50bfd88eddc17
+model_size_bytes: 7917
+model_uuid: m-7822e30b5e1c413894a50bfd88eddc17
+prompts: null
+run_id: de6bec41baec47a9babee2e22b9614f2
+saved_input_example_info:
+  artifact_path: input_example.json
+  pandas_orient: split
+  serving_input_path: serving_input_example.json
+  type: dataframe
+utc_time_created: '2026-07-21 12:54:02.535034'

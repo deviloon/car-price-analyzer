@@ -19,7 +19,6 @@ parts/
 sdist/
 var/
 /data/*
-!/data/processed/
 wheels/
 share/python-wheels/
 *.egg-info/
