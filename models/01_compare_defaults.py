@@ -49,7 +49,7 @@ X_train = train.drop(columns=[CONFIG["TARGET"]])
 y_test = test[CONFIG["TARGET"]]
 X_test = test.drop(columns=[CONFIG["TARGET"]])
 
-dir = 'C:/project/mlflow_runs'
+dir = 'C:/project/car-price-analyzer/src/mlflow_runs'
 os.makedirs(dir, exist_ok=True)
 mlflow.set_tracking_uri(f'sqlite:///{dir}/mlflow.db')
 mlflow.set_experiment('car-price-analyzer')
