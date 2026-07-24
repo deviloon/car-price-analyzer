@@ -39,8 +39,8 @@ import joblib
 # Создадим словарь конфигураций
 CONFIG = {
     # Константы
-    "DEV_MODE": False,
-    "DEV_SAMPLE_SIZE": 100000,
+    "DEV_MODE": True,
+    "DEV_SAMPLE_SIZE": 2000,
     "RANDOM_STATE": 42,
     # Целевая переменная 
     "TARGET": "Цена",
@@ -56,7 +56,6 @@ X_train = train.drop(columns=[CONFIG["TARGET"]])
 y_test = test[CONFIG["TARGET"]]
 X_test = test.drop(columns=[CONFIG["TARGET"]])
 
-
 dir = 'C:/project/car-price-analyzer/src/mlflow_runs'
 os.makedirs(dir, exist_ok=True)
 mlflow.set_tracking_uri(f'sqlite:///{dir}/mlflow.db')
@@ -65,11 +64,17 @@ mlflow.set_experiment('HPO_benchmark')
 cv = KFold(n_splits=5, shuffle=True, random_state=CONFIG['RANDOM_STATE'])
 
 model = lgb.LGBMRegressor(
-    objective='mape',
+    objective='mae',
     random_state=CONFIG['RANDOM_STATE'],
     n_jobs=1,
     verbose=-1,
     subsample_freq=1
+)
+
+wrapped_model = TransformedTargetRegressor(
+    regressor=model,
+    func=np.log1p,
+    inverse_func=np.expm1
 )
 
 param_grid = {
@@ -81,9 +86,13 @@ param_grid = {
     'n_estimators': [500]
     }
 
+param_grid_wrapped = {
+    f'regressor__{key}': value for key, value in param_grid.items()
+}
+
 grid_search = GridSearchCV(
-    estimator = model,
-    param_grid=param_grid,
+    estimator = wrapped_model,
+    param_grid=param_grid_wrapped,
     cv=cv,
     scoring='neg_mean_absolute_percentage_error',
     n_jobs=-1,
@@ -92,6 +101,11 @@ grid_search = GridSearchCV(
 
 run_name='gridsearch'
 with mlflow.start_run(run_name=run_name):
+    if CONFIG["DEV_MODE"]:
+        print(f"Включен DEV_MODE! Обучение на {CONFIG['DEV_SAMPLE_SIZE']} строках...")
+        train = train.sample(n=min(CONFIG["DEV_SAMPLE_SIZE"], len(train)), random_state=CONFIG["RANDOM_STATE"])
+        y_train = train[CONFIG["TARGET"]]
+        X_train = train.drop(columns=[CONFIG["TARGET"]])
     print('Запуск GridSearchCV...')
     start_time = time.time()
     grid_search.fit(X_train, y_train)
