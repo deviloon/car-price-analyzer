@@ -104,69 +104,73 @@ param_grid_wrapped = {
     f'regressor__{key}': value for key, value in param_grid.items()
 }
 
+param_distributions_wrapped = {
+    f'regressor__{key}': value for key, value in param_distributions.items()
+}
+
 grid_search = GridSearchCV(
     estimator = wrapped_model,
     param_grid=param_grid_wrapped,
     cv=cv,
     scoring=scoring,
-    refit='mape'
+    refit='mape',
     n_jobs=-1,
     verbose=2
 )
 
 random_search = RandomizedSearchCV(
     estimator=wrapped_model,
-    param_distributions=param_distributions,
+    param_distributions=param_distributions_wrapped,
     scoring=scoring,
     cv=cv,
     refit='mape',
     n_jobs=-1,
     verbose=2,
     random_state=CONFIG['RANDOM_STATE'],
-    n_iter = 432
+    n_iter = 60
 )
 
-run_name='gridsearch' # mae = 139653.7310652461
-with mlflow.start_run(run_name=run_name):
-    if CONFIG["DEV_MODE"]:
-        print(f"Включен DEV_MODE. Обучение на {CONFIG['DEV_SAMPLE_SIZE']} строках...")
-        train = train.sample(n=min(CONFIG["DEV_SAMPLE_SIZE"], len(train)), random_state=CONFIG["RANDOM_STATE"])
-        y_train = train[CONFIG["TARGET"]]
-        X_train = train.drop(columns=[CONFIG["TARGET"]])
+# run_name='gridsearch' # mae = 139653.7310652461
+# with mlflow.start_run(run_name=run_name):
+#     if CONFIG["DEV_MODE"]:
+#         print(f"Включен DEV_MODE. Обучение на {CONFIG['DEV_SAMPLE_SIZE']} строках...")
+#         train = train.sample(n=min(CONFIG["DEV_SAMPLE_SIZE"], len(train)), random_state=CONFIG["RANDOM_STATE"])
+#         y_train = train[CONFIG["TARGET"]]
+#         X_train = train.drop(columns=[CONFIG["TARGET"]])
 
-    print('Запуск GridSearchCV...')
-    start_time = time.time()
-    grid_search.fit(X_train, y_train)
-    total_time = time.time() - start_time
-    best_idx = grid_search.best_index_
+#     print('Запуск GridSearchCV...')
+#     start_time = time.time()
+#     grid_search.fit(X_train, y_train)
+#     total_time = time.time() - start_time
+#     best_idx = grid_search.best_index_
 
-    best_mape = -grid_search.cv_results_['mean_test_mape'][best_idx]
-    best_mae = -grid_search.cv_results_['mean_test_mae'][best_idx]
-    best_params = grid_search.best_params_
-    mlflow.log_params(best_params)
-    mlflow.log_metric('best_mape', best_mape)
-    mlflow.log_metric('best_mae', best_mae)
-    mlflow.log_metric('total_time_sec', total_time)
+#     best_mape = -grid_search.cv_results_['mean_test_mape'][best_idx]
+#     best_mae = -grid_search.cv_results_['mean_test_mae'][best_idx]
+#     best_params = grid_search.best_params_
+#     mlflow.log_params(best_params)
+#     mlflow.log_metric('best_mape', best_mape)
+#     mlflow.log_metric('best_mae', best_mae)
+#     mlflow.log_metric('total_time_sec', total_time)
 
 
-    running_best_mape = float('inf')
-    running_best_mae = float('inf')
+#     running_best_mape = float('inf')
+#     running_best_mae = float('inf')
 
-    num_combinations = len(grid_search.cv_results_['params'])
-    for i in range(num_combinations):
-        # Достаем метрики конкретной i-й итерации
-        current_mape = -grid_search.cv_results_['mean_test_mape'][i]
-        current_mae = -grid_search.cv_results_['mean_test_mae'][i]
+#     num_combinations = len(grid_search.cv_results_['params'])
+#     for i in range(num_combinations):
+#         # Достаем метрики конкретной i-й итерации
+#         current_mape = -grid_search.cv_results_['mean_test_mape'][i]
+#         current_mae = -grid_search.cv_results_['mean_test_mae'][i]
 
-        # Обновляем лучшие нарастающие значения
-        running_best_mape = min(running_best_mape, current_mape)
-        running_best_mae = min(running_best_mae, current_mae)
+#         # Обновляем лучшие нарастающие значения
+#         running_best_mape = min(running_best_mape, current_mape)
+#         running_best_mae = min(running_best_mae, current_mae)
 
-        mlflow.log_metric('convergence_mape', running_best_mape, step=i)
-        mlflow.log_metric('convergence_mae', running_best_mae, step=i)
+#         mlflow.log_metric('convergence_mape', running_best_mape, step=i)
+#         mlflow.log_metric('convergence_mae', running_best_mae, step=i)
 
-    print(f"GridSearch завершен за {total_time / 60:.2f} минут.")
-    print(f"Лучший MAPE: {best_mape:.4f} | MAE этой же модели: {best_mae:.2f}")
+#     print(f"GridSearch завершен за {total_time / 60:.2f} минут.")
+#     print(f"Лучший MAPE: {best_mape:.4f} | MAE этой же модели: {best_mae:.2f}")
 
 
 
