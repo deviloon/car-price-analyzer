@@ -60,8 +60,6 @@ num_cols = X_train.select_dtypes('number').columns.to_list()
 low_card_cols = ['Тип двигателя', 'Коробка передач', 'Привод', 'Руль', 'Цвет', 'Тип кузова']
 high_card_cols = ['Марка', 'Регион', 'Модель']
 cat_cols = low_card_cols + high_card_cols
-X_train[cat_cols] = X_train[cat_cols].astype('category')
-X_test[cat_cols] = X_test[cat_cols].astype('category')
 preprocessor = ColumnTransformer(
     transformers=[
         ('num', RobustScaler(), num_cols),

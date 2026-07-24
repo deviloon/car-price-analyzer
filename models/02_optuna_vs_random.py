@@ -56,6 +56,7 @@ X_train = train.drop(columns=[CONFIG["TARGET"]])
 y_test = test[CONFIG["TARGET"]]
 X_test = test.drop(columns=[CONFIG["TARGET"]])
 
+
 dir = 'C:/project/car-price-analyzer/src/mlflow_runs'
 os.makedirs(dir, exist_ok=True)
 mlflow.set_tracking_uri(f'sqlite:///{dir}/mlflow.db')
@@ -66,8 +67,9 @@ cv = KFold(n_splits=5, shuffle=True, random_state=CONFIG['RANDOM_STATE'])
 model = lgb.LGBMRegressor(
     objective='mape',
     random_state=CONFIG['RANDOM_STATE'],
-    n_jobs=-1,
-    verbose=-1
+    n_jobs=1,
+    verbose=-1,
+    subsample_freq=1
 )
 
 param_grid = {
@@ -85,7 +87,7 @@ grid_search = GridSearchCV(
     cv=cv,
     scoring='neg_mean_absolute_percentage_error',
     n_jobs=-1,
-    verbose=1
+    verbose=2
 )
 
 run_name='gridsearch'
@@ -95,7 +97,7 @@ with mlflow.start_run(run_name=run_name):
     grid_search.fit(X_train, y_train)
     total_time = time.time() - start_time
     best_mape = -grid_search.best_score_
-    best_params = -grid_search.best_params_
+    best_params = grid_search.best_params_
 
     mlflow.log_params(best_params)
     mlflow.log_metric('best_mape', best_mape)
