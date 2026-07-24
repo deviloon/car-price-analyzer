@@ -73,8 +73,6 @@ pipeline_ridge = Pipeline(steps=[
     ('regressor', Ridge())
 ])
 
-y_train_orig = np.expm1(y_train)
-
 tt_pipeline_ridge = TransformedTargetRegressor(
     regressor=pipeline_ridge,
     func=np.log1p,
@@ -93,7 +91,7 @@ with mlflow.start_run(run_name=run_name):
     cv_results = cross_validate(
         tt_pipeline_ridge,
         X_train,
-        y_train_orig,
+        y_train,
         cv=5,
         scoring=scoring_metrics,
         n_jobs=-1,
@@ -162,7 +160,7 @@ with mlflow.start_run(run_name=run_name):
     cv_results = cross_validate(
         tt_pipeline_catboost_default,
         X_train,
-        y_train_orig,
+        y_train,
         cv=5,
         scoring=scoring_metrics,
         n_jobs=-1,
@@ -207,7 +205,7 @@ with mlflow.start_run(run_name=run_name):
     cv_results = cross_validate(
         tt_pipeline_xgboost_default,
         X_train,
-        y_train_orig,
+        y_train,
         cv=5,
         scoring=scoring_metrics,
         n_jobs=-1,
@@ -243,7 +241,7 @@ with mlflow.start_run(run_name=run_name):
     cv_results = cross_validate(
         tt_pipeline_lightgbm_default,
         X_train,
-        y_train_orig,
+        y_train,
         cv=5,
         scoring=scoring_metrics,
         n_jobs=-1,
