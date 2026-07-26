@@ -13,6 +13,7 @@ from sklearn.compose import TransformedTargetRegressor
 from sklearn.model_selection import GridSearchCV, KFold, RandomizedSearchCV
 import copy
 from sklearn.model_selection import cross_val_score
+import optuna
 from sklearn.model_selection import cross_validate
 import xgboost as xgb
 import pyarrow
@@ -88,8 +89,8 @@ param_grid = {
 
 param_distributions = {
     'learning_rate': loguniform(0.01, 0.15),
-    'num_leaves': randint(31, 255),
-    'min_child_samples': randint(20, 150),
+    'num_leaves': randint(31, 256),
+    'min_child_samples': randint(20, 151),
     'subsample': uniform(0.6, 0.4),
     'colsample_bytree': uniform(0.6, 0.4),
     'n_estimators': [500]
@@ -174,44 +175,127 @@ random_search = RandomizedSearchCV(
 
 
 
-run_name='random_search'
+# run_name='random_search'
+# with mlflow.start_run(run_name=run_name):
+#     if CONFIG["DEV_MODE"]:
+#         print(f"Включен DEV_MODE. Обучение на {CONFIG['DEV_SAMPLE_SIZE']} строках...")
+#         train = train.sample(n=min(CONFIG["DEV_SAMPLE_SIZE"], len(train)), random_state=CONFIG["RANDOM_STATE"])
+#         y_train = train[CONFIG["TARGET"]]
+#         X_train = train.drop(columns=[CONFIG["TARGET"]])
+
+#     print('Запуск RandomizedSearchCV...')
+#     start_time = time.time()
+#     random_search.fit(X_train, y_train)
+#     total_time = time.time() - start_time
+#     best_idx = random_search.best_index_
+
+#     best_mape = -random_search.cv_results_['mean_test_mape'][best_idx]
+#     best_mae = -random_search.cv_results_['mean_test_mae'][best_idx]
+#     best_params = random_search.best_params_
+#     mlflow.log_params(best_params)
+#     mlflow.log_metric('best_mape', best_mape)
+#     mlflow.log_metric('best_mae', best_mae)
+#     mlflow.log_metric('total_time_sec', total_time)
+
+
+#     running_best_mape = float('inf')
+#     running_best_mae = float('inf')
+
+#     num_combinations = len(random_search.cv_results_['params'])
+#     for i in range(num_combinations):
+#         # Достаем метрики конкретной i-й итерации
+#         current_mape = -random_search.cv_results_['mean_test_mape'][i]
+#         current_mae = -random_search.cv_results_['mean_test_mae'][i]
+
+#         # Обновляем лучшие нарастающие значения
+#         running_best_mape = min(running_best_mape, current_mape)
+#         running_best_mae = min(running_best_mae, current_mae)
+
+#         mlflow.log_metric('convergence_mape', running_best_mape, step=i)
+#         mlflow.log_metric('convergence_mae', running_best_mae, step=i)
+
+#     print(f"RandomSearch завершен за {total_time / 60:.2f} минут.")
+#     print(f"Лучший MAPE: {best_mape:.4f} | MAE этой же модели: {best_mae:.2f}")
+
+
+run_name='optuna'
 with mlflow.start_run(run_name=run_name):
-    if CONFIG["DEV_MODE"]:
-        print(f"Включен DEV_MODE. Обучение на {CONFIG['DEV_SAMPLE_SIZE']} строках...")
-        train = train.sample(n=min(CONFIG["DEV_SAMPLE_SIZE"], len(train)), random_state=CONFIG["RANDOM_STATE"])
-        y_train = train[CONFIG["TARGET"]]
-        X_train = train.drop(columns=[CONFIG["TARGET"]])
+    def objective(trial):
+        lgb_params = {
+            'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.15, log=True),
+            'num_leaves': trial.suggest_int('num_leaves', 31, 255),
+            'min_child_samples': trial.suggest_int('min_child_samples', 20, 150),
+            'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+            'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+            'n_estimators': 500,
+            'objective': 'mae',
+            'random_state': CONFIG['RANDOM_STATE'],
+            'n_jobs': 1,
+            'verbose': -1,
+            'subsample_freq': 1
+        }
+        wrapped_model = TransformedTargetRegressor(
+            regressor=model,
+            func=np.log1p,
+            inverse_func=np.expm1
+        )
+        
+        scores = cross_validate(
+            estimator=wrapped_model,
+            X=X_train,
+            y=y_train,
+            scoring=scoring,
+            cv=cv,
+            n_jobs=-1
+        )
+        
+        mape = -scores['test_mape'].mean()
+        mae = -scores['test_mae'].mean()
+        
+        trial.set_user_attr('mae', mae)
+        
+        return mape
 
-    print('Запуск RandomizedSearchCV...')
+    print('Запуск Optuna...')
     start_time = time.time()
-    random_search.fit(X_train, y_train)
+    
+    # Отключаем лишний мусор в консоли от Optuna, оставляя только важные сообщения
+    optuna.logging.set_verbosity(optuna.logging.INFO)
+    
+    sampler = optuna.samplers.TPESampler(seed=CONFIG['RANDOM_STATE'])
+    study = optuna.create_study(direction='minimize', sampler=sampler)
+    
+    study.optimize(objective, n_trials=60)
+    
     total_time = time.time() - start_time
-    best_idx = random_search.best_index_
-
-    best_mape = -random_search.cv_results_['mean_test_mape'][best_idx]
-    best_mae = -random_search.cv_results_['mean_test_mae'][best_idx]
-    best_params = random_search.best_params_
+    
+    best_mape = study.best_value
+    best_mae = study.best_trial.user_attrs['mae']
+    
+    # Форматируем параметры для логгирования (добавляем 'regressor__' для идентичности с sklearn)
+    best_params = {f'regressor__{k}': v for k, v in study.best_params.items()}
+    best_params['regressor__n_estimators'] = 500
+    
     mlflow.log_params(best_params)
     mlflow.log_metric('best_mape', best_mape)
     mlflow.log_metric('best_mae', best_mae)
     mlflow.log_metric('total_time_sec', total_time)
 
-
+    # Строим график сходимости
     running_best_mape = float('inf')
     running_best_mae = float('inf')
-
-    num_combinations = len(random_search.cv_results_['params'])
-    for i in range(num_combinations):
-        # Достаем метрики конкретной i-й итерации
-        current_mape = -random_search.cv_results_['mean_test_mape'][i]
-        current_mae = -random_search.cv_results_['mean_test_mae'][i]
-
-        # Обновляем лучшие нарастающие значения
+    
+    for i, trial in enumerate(study.trials):
+        if trial.state != optuna.trial.TrialState.COMPLETE:
+            continue
+            
+        current_mape = trial.value
+        current_mae = trial.user_attrs.get('mae', float('inf'))
         running_best_mape = min(running_best_mape, current_mape)
         running_best_mae = min(running_best_mae, current_mae)
 
         mlflow.log_metric('convergence_mape', running_best_mape, step=i)
         mlflow.log_metric('convergence_mae', running_best_mae, step=i)
 
-    print(f"RandomSearch завершен за {total_time / 60:.2f} минут.")
+    print(f"Optuna завершена за {total_time / 60:.2f} минут.")
     print(f"Лучший MAPE: {best_mape:.4f} | MAE этой же модели: {best_mae:.2f}")
