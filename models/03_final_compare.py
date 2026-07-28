@@ -192,16 +192,16 @@ with mlflow.start_run(run_name=run_name):
     def objective(trial):
         bootstrap_type = trial.suggest_categorical('bootstrap_type', ['Bayesian', 'Bernoulli', 'MVS'])
         cb_params = {
+        'allow_writing_files': False,
         'iterations': trial.suggest_int('iterations', 600, 2500, step=100),
         'learning_rate': trial.suggest_float('learning_rate', 0.005, 0.15, log=True),
         'depth': trial.suggest_int('depth', 4, 10),
         'l2_leaf_reg': trial.suggest_float('l2_leaf_reg', 1e-2, 20.0, log=True),
         'random_strength': trial.suggest_float('random_strength', 1e-3, 10.0, log=True),
         'border_count': trial.suggest_int('border_count', 32, 255),
-        'min_data_in_leaf': trial.suggest_int('min_data_in_leaf', 10, 200),
-        'rsm': trial.suggest_float('rsm', 0.5, 1.0),
         'bootstrap_type': bootstrap_type,
         'loss_function': 'MAE',
+        'task_type': 'GPU',
         'eval_metric': 'MAE',
         'random_seed': CONFIG['RANDOM_STATE'],
         'thread_count': 1,
@@ -228,7 +228,7 @@ with mlflow.start_run(run_name=run_name):
             scoring=scoring,
             cv=cv,
             params={'cat_features': cat_features},
-            n_jobs=-1
+            n_jobs=1
         )
         
         mape = -scores['test_mape'].mean()
@@ -259,9 +259,10 @@ with mlflow.start_run(run_name=run_name):
     final_catboost_params = best_params.copy()
     final_catboost_params.update({
         'loss_function': 'MAE',
+        'task_type': 'GPU',
+        'allow_writing_files': False,
         'eval_metric': 'MAE',
         'random_seed': CONFIG['RANDOM_STATE'],
-        'thread_count': -1,
         'verbose': 0
     })
     final_model = CatBoostRegressor(**final_catboost_params)
