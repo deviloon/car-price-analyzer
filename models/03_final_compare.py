@@ -191,22 +191,25 @@ with mlflow.start_run(run_name=run_name):
     print(f'Начало большого поиска Optuna для CatBoost...')
     def objective(trial):
         bootstrap_type = trial.suggest_categorical('bootstrap_type', ['Bayesian', 'Bernoulli', 'MVS'])
+                
         cb_params = {
-        'allow_writing_files': False,
-        'iterations': trial.suggest_int('iterations', 600, 2500, step=100),
-        'learning_rate': trial.suggest_float('learning_rate', 0.005, 0.15, log=True),
-        'depth': trial.suggest_int('depth', 4, 10),
-        'l2_leaf_reg': trial.suggest_float('l2_leaf_reg', 1e-2, 20.0, log=True),
-        'random_strength': trial.suggest_float('random_strength', 1e-3, 10.0, log=True),
-        'border_count': trial.suggest_int('border_count', 32, 255),
-        'bootstrap_type': bootstrap_type,
-        'loss_function': 'MAE',
-        'task_type': 'GPU',
-        'eval_metric': 'MAE',
-        'random_seed': CONFIG['RANDOM_STATE'],
-        'thread_count': 1,
-        'verbose': 0
+            'allow_writing_files': False,
+            'iterations': 5000,
+            'learning_rate': trial.suggest_float('learning_rate', 0.005, 0.15, log=True),
+            'depth': trial.suggest_int('depth', 4, 10),
+            'l2_leaf_reg': trial.suggest_float('l2_leaf_reg', 0.1, 20.0, log=True),
+            'random_strength': trial.suggest_float('random_strength', 1e-3, 10.0, log=True),
+            'border_count': trial.suggest_int('border_count', 32, 255),
+            'bootstrap_type': bootstrap_type,
+            'loss_function': 'MAE',
+            'eval_metric': 'MAE',
+            'task_type': 'GPU',
+            'random_seed': CONFIG['RANDOM_STATE'],
+            'thread_count': 1,
+            'verbose': 0,
         }
+
+        # Выставляем доп. параметры под выбранный бутстрап
         if bootstrap_type == 'Bayesian':
             cb_params['bagging_temperature'] = trial.suggest_float('bagging_temperature', 0.0, 10.0)
         elif bootstrap_type in ['Bernoulli', 'MVS']:
