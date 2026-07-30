@@ -68,6 +68,8 @@ os.makedirs(dir, exist_ok=True)
 mlflow.set_tracking_uri(f'sqlite:///{dir}/mlflow.db')
 mlflow.set_experiment('final_compare')
 
+
+
 cv = KFold(n_splits=5, shuffle=True, random_state=CONFIG['RANDOM_STATE'])
 
 scoring = {
@@ -184,39 +186,47 @@ scoring = {
 #     print(f"CV MAPE: {best_cv_mape:.4f} | TEST MAPE (Итог): {test_mape:.4f}")
 #     print(f"CV MAE:  {best_cv_mae:.0f} | TEST MAE (Итог):  {test_mae:.0f}")
 
+cat_features = X_train.select_dtypes(include=['object', 'category']).columns.to_list()
+
+old_best_params = {
+    "iterations": 2500,
+    "learning_rate": 0.042248138023520114,
+    "depth": 10,
+    "l2_leaf_reg": 9.394802632887766,
+    "bootstrap_type": "Bernoulli",
+    "border_count": 207,
+    "random_strength": 0.8303775333704183,
+    "subsample": 0.5483853226992782,
+}
 
 run_name = 'catboost_final'
 with mlflow.start_run(run_name=run_name):
-    cat_features = X_train.select_dtypes(include=['object', 'category']).columns.to_list()
     print(f'Начало большого поиска Optuna для CatBoost...')
+    
     def objective(trial):
         bootstrap_type = trial.suggest_categorical('bootstrap_type', ['Bayesian', 'Bernoulli', 'MVS'])
                 
         cb_params = {
             'allow_writing_files': False,
-            'iterations': 5000,
+            'iterations': trial.suggest_int('iterations', 1000, 5000, step=100),
             'learning_rate': trial.suggest_float('learning_rate', 0.005, 0.15, log=True),
-            'depth': trial.suggest_int('depth', 4, 10),
+            'depth': trial.suggest_int('depth', 4, 10),  # Можно уменьшить до (4, 8) для ускорения
             'l2_leaf_reg': trial.suggest_float('l2_leaf_reg', 0.1, 20.0, log=True),
             'random_strength': trial.suggest_float('random_strength', 1e-3, 10.0, log=True),
             'border_count': trial.suggest_int('border_count', 32, 255),
             'bootstrap_type': bootstrap_type,
             'loss_function': 'MAE',
             'eval_metric': 'MAE',
-            'task_type': 'GPU',
             'random_seed': CONFIG['RANDOM_STATE'],
-            'thread_count': 1,
+            'thread_count': -1,  # Использование всех ядер
             'verbose': 0,
         }
-
-        # Выставляем доп. параметры под выбранный бутстрап
+        
         if bootstrap_type == 'Bayesian':
             cb_params['bagging_temperature'] = trial.suggest_float('bagging_temperature', 0.0, 10.0)
         elif bootstrap_type in ['Bernoulli', 'MVS']:
             cb_params['subsample'] = trial.suggest_float('subsample', 0.4, 1.0)
 
-
-        
         current_model = CatBoostRegressor(**cb_params)
         current_wrapped = TransformedTargetRegressor(
             regressor=current_model,
@@ -224,14 +234,15 @@ with mlflow.start_run(run_name=run_name):
             inverse_func=np.expm1
         )
         
+        # Исправлено: fit_params вместо params
         scores = cross_validate(
             estimator=current_wrapped,
             X=X_train,
             y=y_train,
             scoring=scoring,
             cv=cv,
-            params={'cat_features': cat_features},
-            n_jobs=1
+            fit_params={'cat_features': cat_features}, 
+            n_jobs=1  # Строго 1, т.к. CatBoost уже использует все ядра через thread_count=-1
         )
         
         mape = -scores['test_mape'].mean()
@@ -240,13 +251,15 @@ with mlflow.start_run(run_name=run_name):
         
         return mape
 
-
-
     start_time = time.time()
     optuna.logging.set_verbosity(optuna.logging.INFO)
     sampler = optuna.samplers.TPESampler(seed=CONFIG['RANDOM_STATE'])
     study = optuna.create_study(direction='minimize', sampler=sampler)
-    study.optimize(objective, n_trials=150)
+    
+    # Передаем только валидные параметры
+    study.enqueue_trial(old_best_params)
+    study.optimize(objective, n_trials=50)
+    
     time_elapsed = time.time() - start_time
     print(f"Поиск завершен за {time_elapsed / 60:.2f} минут.")
 
@@ -254,20 +267,19 @@ with mlflow.start_run(run_name=run_name):
     best_cv_mae = study.best_trial.user_attrs['mae']
     best_params = study.best_params
 
-
-
-
     print("Начало финального обучения на всех данных...")
     start_time_fit = time.time()
+    
     final_catboost_params = best_params.copy()
     final_catboost_params.update({
         'loss_function': 'MAE',
-        'task_type': 'GPU',
         'allow_writing_files': False,
         'eval_metric': 'MAE',
         'random_seed': CONFIG['RANDOM_STATE'],
+        'thread_count': -1,
         'verbose': 0
     })
+    
     final_model = CatBoostRegressor(**final_catboost_params)
     final_wrapped = TransformedTargetRegressor(
         regressor=final_model,
@@ -276,7 +288,6 @@ with mlflow.start_run(run_name=run_name):
     )
     
     final_wrapped.fit(X_train, y_train, cat_features=cat_features)
-    
     time_fit = time.time() - start_time_fit
     
     print("Проверка на X_test...")
@@ -285,15 +296,12 @@ with mlflow.start_run(run_name=run_name):
     test_mape = mean_absolute_percentage_error(y_test, y_pred_test)
     test_mae = mean_absolute_error(y_test, y_pred_test)
 
-    
+    # Логирование в MLflow
     mlflow.log_params({f"regressor__{k}": v for k, v in final_catboost_params.items()})
-    
     mlflow.log_metric('cv_best_mape', best_cv_mape)
     mlflow.log_metric('cv_best_mae', best_cv_mae)
-    
     mlflow.log_metric('test_mape', test_mape)
     mlflow.log_metric('test_mae', test_mae)
-    
     mlflow.log_metric('time_hpo_sec', time_elapsed)
     mlflow.log_metric('time_final_fit_sec', time_fit)
     
