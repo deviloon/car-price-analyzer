@@ -210,7 +210,7 @@ with mlflow.start_run(run_name=run_name):
             'allow_writing_files': False,
             'iterations': trial.suggest_int('iterations', 1000, 5000, step=100),
             'learning_rate': trial.suggest_float('learning_rate', 0.005, 0.15, log=True),
-            'depth': trial.suggest_int('depth', 4, 10),  # Можно уменьшить до (4, 8) для ускорения
+            'depth': trial.suggest_int('depth', 4, 10),
             'l2_leaf_reg': trial.suggest_float('l2_leaf_reg', 0.1, 20.0, log=True),
             'random_strength': trial.suggest_float('random_strength', 1e-3, 10.0, log=True),
             'border_count': trial.suggest_int('border_count', 32, 255),
@@ -218,7 +218,7 @@ with mlflow.start_run(run_name=run_name):
             'loss_function': 'MAE',
             'eval_metric': 'MAE',
             'random_seed': CONFIG['RANDOM_STATE'],
-            'thread_count': -1,  # Использование всех ядер
+            'thread_count': -1,
             'verbose': 0,
         }
         
@@ -234,15 +234,14 @@ with mlflow.start_run(run_name=run_name):
             inverse_func=np.expm1
         )
         
-        # Исправлено: fit_params вместо params
         scores = cross_validate(
             estimator=current_wrapped,
             X=X_train,
             y=y_train,
             scoring=scoring,
             cv=cv,
-            fit_params={'cat_features': cat_features}, 
-            n_jobs=1  # Строго 1, т.к. CatBoost уже использует все ядра через thread_count=-1
+            params={'cat_features': cat_features}, 
+            n_jobs=1
         )
         
         mape = -scores['test_mape'].mean()
@@ -256,7 +255,6 @@ with mlflow.start_run(run_name=run_name):
     sampler = optuna.samplers.TPESampler(seed=CONFIG['RANDOM_STATE'])
     study = optuna.create_study(direction='minimize', sampler=sampler)
     
-    # Передаем только валидные параметры
     study.enqueue_trial(old_best_params)
     study.optimize(objective, n_trials=50)
     
@@ -296,7 +294,6 @@ with mlflow.start_run(run_name=run_name):
     test_mape = mean_absolute_percentage_error(y_test, y_pred_test)
     test_mae = mean_absolute_error(y_test, y_pred_test)
 
-    # Логирование в MLflow
     mlflow.log_params({f"regressor__{k}": v for k, v in final_catboost_params.items()})
     mlflow.log_metric('cv_best_mape', best_cv_mape)
     mlflow.log_metric('cv_best_mae', best_cv_mae)
