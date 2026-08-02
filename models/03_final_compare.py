@@ -325,7 +325,7 @@ with mlflow.start_run(run_name=run_name):
             'objective': 'reg:absoluteerror',
             'eval_metric': 'mae',
             'tree_method': 'hist',
-            'device': 'cuda:0',
+            'device': 'cuda:1',
             'random_state': CONFIG['RANDOM_STATE'],
             'max_depth': trial.suggest_int('max_depth', 3, 10),
             'n_estimators': trial.suggest_int('n_estimators', 100, 2000, step=100),
@@ -337,7 +337,7 @@ with mlflow.start_run(run_name=run_name):
             'subsample': trial.suggest_float('subsample', 0.5, 1.0),
             'colsample_bytree': trial.suggest_float('colsample_bytree', 0.3, 1.0),
             'colsample_bylevel': trial.suggest_float('colsample_bylevel', 0.5, 1.0),
-            'n_jobs': -1,
+            # 'n_jobs': -1,
             'verbosity': 0,
             'enable_categorical': True
         }
@@ -386,9 +386,9 @@ with mlflow.start_run(run_name=run_name):
         'objective': 'reg:absoluteerror',
         'eval_metric': 'mae',
         'tree_method': 'hist',
-        'device': 'cuda:0',
+        'device': 'cuda:1',
         'random_state': CONFIG['RANDOM_STATE'],
-        'n_jobs': -1,
+        # 'n_jobs': -1,
         'verbosity': 0,
         'enable_categorical': True
     })
