@@ -315,6 +315,8 @@ old_best_params = {
 #     print(f"CV MAE:  {best_cv_mae:.0f} | TEST MAE (Итог):  {test_mae:.0f}")
 
 
+
+
 run_name = 'xgboost_final'
 with mlflow.start_run(run_name=run_name):
     print(f'Начало большого поиска Optuna для XGBoost...')
@@ -323,7 +325,7 @@ with mlflow.start_run(run_name=run_name):
             'objective': 'reg:absoluteerror',
             'eval_metric': 'mae',
             'tree_method': 'hist',
-            'device': 'cuda',
+            'device': 'cuda:0',
             'random_state': CONFIG['RANDOM_STATE'],
             'max_depth': trial.suggest_int('max_depth', 3, 10),
             'n_estimators': trial.suggest_int('n_estimators', 100, 2000, step=100),
@@ -384,7 +386,7 @@ with mlflow.start_run(run_name=run_name):
         'objective': 'reg:absoluteerror',
         'eval_metric': 'mae',
         'tree_method': 'hist',
-        'device': 'cuda',
+        'device': 'cuda:0',
         'random_state': CONFIG['RANDOM_STATE'],
         'n_jobs': -1,
         'verbosity': 0,
