@@ -1,8 +1,10 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import datetime
+import time
+from datetime import datetime, date
 from src.feature_eng import create_features
+from src.llm_parser import parse_car_description
 from src.predict import predict_price, load_model
 
 current_year = datetime.now().year
@@ -19,8 +21,46 @@ except FileNotFoundError as e:
     st.error(f'Ошибка: {e}')
     st.stop() # Останавливаем сайт, если модели нет
 
+api_key = st.secrets.get("OPENROUTER_API_KEY", "")
+if 'car_data' not in st.session_state:
+    st.session_state.car_data = {}
+if "llm_fields" not in st.session_state:
+    st.session_state.llm_fields = [] # Здесь будем хранить ключи, которые нашел ИИ
+
+# Функция для подсветки названий полей
+def get_label(key, base_name):
+    if key in st.session_state.llm_fields:
+        return f"{base_name} ✨"
+    return base_name
+
 st.title('Оценка стоимости автомобиля')
 st.write('Введите параметры автомобиля, чтобы узнать его примерную рыночную стоимость.')
+
+with st.expander('Шаг 1: Автозаполнение формы с помощью ИИ', expanded=True):
+    user_description = st.text_area(
+        'Введите описание автомобиля своими словами:',
+        placeholder="Например: Продаю ладу гранту 15 года, 2 владельца, пробег 40к, механика, 106 сил"
+    )
+    if st.button('Распарсить через ИИ'):
+        if not api_key:
+            st.error("Ключ OPENROUTER_API_KEY не найден в файле .streamlit/secrets.toml")
+        elif not user_description.strip():
+            st.warning("Пожалуйста, введите описание автомобиля.")
+        else:
+            with st.status("Нейросеть извлекает характеристики...", expanded=True) as status:
+                st.write("Подключение к OpenRouter...")
+                try:
+                    time.sleep(0.2) 
+                    st.write("Извлечение параметров автомобиля...")
+                    parsed = parse_car_description(user_description, api_key)
+                    st.write("Заполнение формы...")
+                    st.session_state.car_data = parsed
+                    status.update(label="Данные успешно распознаны! Проверьте форму ниже.", state="complete", expanded=False)
+                except Exception as e:
+                    status.update(label="Произошла ошибка при обращении к ИИ", state="error", expanded=False)
+                    st.error(f"Ошибка: {e}")
+
+
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -37,22 +77,22 @@ with col1:
 with col2:
     power = st.number_input("Мощность (л.с.)", min_value=0, value=106, step=1)
     engine_vol = st.number_input("Объем двигателя (л)", min_value=0.0, value=1.6, step=0.1)
-    seller_type = st.selectbox("Тип продавца", ["Частное лицо", "Дилер/Салон"])
-    restyling = st.number_input("Рестайлинг", value=np.nan, step=1, min_value=0)
-    generation = st.number_input("Поколение", value=np.nan, step=1, min_value=0)
+    owner = st.selectbox("Владелец", ["Частное лицо", "Дилер/Салон"])
+    restyling = st.number_input("Рестайлинг", value=None, step=1, min_value=0)
+    generation = st.number_input("Поколение", value=None, step=1, min_value=0)
 
 with col3:
     transmission = st.selectbox("Коробка передач", ['АКПП', 'МКПП', 'CVT', 'РКПП', 'редуктор'])
     drive_type = st.selectbox("Привод", ['передний', 'задний', '4WD', 'двигатель посередине (MID)'])
     equipment = st.text_input("Комплектация", value='Unknown')
     region = st.text_input("Регион", value='Unknown')
-    special_marks = st.textInput("Особые отметки (негативные)", value=np.nan)
+    special_marks = st.text_input("Особые отметки (негативные)", value=None)
 
 with col4:
-    steering_wheel = st.selectbox("Руль", ['правый', 'левый'])
+    steering_wheel = st.selectbox("Руль", ['левый', 'правый'])
     color = st.text_input("Цвет (вводите через букву \"е\", не \"ё\")", value="черный")
     owners_count = st.selectbox("Владельцы", ['1', '2', '3', '4 и более'])
-    ad_date = st.date_input("Дата размещения объявления", value=datetime.date.today(), max_value=datetime.date.today(), min_value=datetime.date(1999, 1, 1))
+    ad_date = st.date_input("Дата размещения объявления", value=date.today(), max_value=date.today(), min_value=date(1999, 1, 1))
     body_type = st.text_input("Тип кузова (вводите с маленькой буквы)", value='Unknown')
 
 st.markdown("---") # Разделительная линия
@@ -65,14 +105,14 @@ if st.button("Рассчитать цену", use_container_width=True):
         "Тип двигателя": [engine_type],
         "Мощность": [power],
         "Объем двигателя": [engine_vol],
-        "Тип продавца": [seller_type],
+        "Владелец": [owner],
         "Рестайлинг": [restyling],
         "Поколение": [generation],
         "Коробка передач": [transmission],
         "Привод": [drive_type],
         "Комплектация": [equipment],
         "Регион": [region],
-        "Особые отметки": [special_marks],
+        "Особые отметки": [special_marks.strip() if special_marks and special_marks.strip() else None],
         "Руль": [steering_wheel],
         "Цвет": [color],
         "Владельцы": [owners_count],
