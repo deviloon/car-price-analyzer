@@ -104,4 +104,20 @@ def create_features(df_input):
         text_features = ['Комплектация']
         df['Комплектация'] = df['Комплектация'].astype(str)
 
+    owners_mapping = {
+    '4 и более': 4,
+    '1.0': 1,
+    '2.0': 2,
+    '3.0': 3,
+    1.0: 1,
+    2.0: 2,
+    3.0: 3,
+    '1': 1,
+    '2': 2,
+    '3': 3
+    }
+
+    df['Владельцы'] = df['Владельцы'].replace(owners_mapping)
+    df['Есть особые отметки'] = df['Особые отметки'].notna().astype(int)
+
     return df
