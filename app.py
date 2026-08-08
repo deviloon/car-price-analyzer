@@ -84,3 +84,12 @@ if st.button("Рассчитать цену", use_container_width=True):
     result = predict_price(model, df_prepared, mape=0.1539)
 
     price_str = f"{result['price']:,}".replace(",", " ") + " ₽"
+
+    delta_val = result['upper_bound'] - result['price']
+    delta_str = f"± {delta_val:,}".replace(",", " ") + f" ₽ (Погрешность ~{result['mape_percent']}%)"
+
+    st.success("Расчет успешно завершен!")
+    st.metric(label="Рекомендуемая цена", value=price_str, delta=delta_str, delta_color="off")
+
+    with st.expander("Посмотреть сгенерированные признаки (для отладки)"):
+        st.dataframe(df_prepared)
