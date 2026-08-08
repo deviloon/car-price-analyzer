@@ -15,12 +15,17 @@ def predict_price(model, df_prepared, mape=0.1539):
     """
     Делает предсказание и рассчитывает диапазон цен.
     """
-    text_features = ['Комплектация']
     cat_model = model.regressor_
-    cat_indices = cat_model.get_cat_feature_indices()
-    feature_names = cat_model.feature_names_
-    cat_features = [feature_names[i] for i in cat_indices]
-    price_pred = model.predict(df_prepared, cat_features=cat_features, text_features=text_features)
+    expected_features = cat_model.feature_names_
+    missing_cols = [col for col in expected_features if col not in df_prepared.columns]
+    if missing_cols:
+        raise ValueError(f"В подготовленных данных не хватает колонок: {missing_cols}")
+    df_final = df_prepared[expected_features].copy()
+    cat_cols = df_final.select_dtypes(include=['category']).columns
+    if len(cat_cols) > 0:
+        df_final[cat_cols] = df_final[cat_cols].astype('object')
+
+    price_pred = model.predict(df_final)
     
     # Если возвращается массив, берем первое значение
     if isinstance(price_pred, np.ndarray):
@@ -28,7 +33,7 @@ def predict_price(model, df_prepared, mape=0.1539):
     else:
         price = price_pred
         
-    lower_bound = price * (1 - mape)
+    lower_bound = price * (1 - (2*mape))
     upper_bound = price * (1 + mape)
     
     # Округляем до тысяч рублей для красивого вывода

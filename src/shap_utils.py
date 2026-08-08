@@ -1,23 +1,36 @@
 import shap
 import numpy as np
+from catboost import Pool
+import pandas as pd
+
 def get_shap(model, df):
     """
     Рассчитывает SHAP-значения, переводит их из log1p в рубли
     и готовит данные для интерактивного графика и текстового отчета.
     """
+    for col in df.select_dtypes(include=['category']).columns:
+        df[col] = df[col].astype(str)
+
     cb_model = model.regressor_
-    explainer = shap.TreeExplainer(cb_model)
-    shap_values = explainer(df)
+    if hasattr(cb_model, 'feature_names_') and cb_model.feature_names_:
+        df = df[cb_model.feature_names_]
+    cat_indices = cb_model.get_cat_feature_indices()
+    text_indices = cb_model.get_text_feature_indices()
 
-    log_base = shap_values.base_values[0]
-    log_vals = shap_values.values[0]
-    feature_names = shap_values.feature_names
-    data_values = shap_values.data[0]
+    pool = Pool(df, cat_features=cat_indices, text_features=text_indices)
+    cb_shap = cb_model.get_feature_importance(pool, type='ShapValues')
 
-    sum_log_vals = np.sum(log_vals) # Суммарное отклонение в логарифмах
-    base_rubles = np.expm1(log_base) # Базовая цена "среднего" авто
-    pred_rubles = np.expm1(log_base + sum_log_vals) # Итоговая предсказанная цена
-    diff_rubles = pred_rubles - base_rubles # Суммарное отклонение в рублях
+    log_vals = cb_shap[0, :-1]  # Влияние фичей в логарифмах
+    log_base = cb_shap[0, -1]   # Базовая цена в логарифмах
+    
+    feature_names = df.columns.tolist()
+    data_values = df.iloc[0].values
+
+    base_rubles = np.expm1(log_base) # Базовая цена среднего авто
+    pred_rubles = np.expm1(log_base + np.sum(log_vals)) # Итоговая цена
+    
+    diff_rubles = pred_rubles - base_rubles # Разница в рублях
+    sum_log_vals = np.sum(log_vals) # Разница в логарифмах
 
     # Пропорционально распределяем рубли по признакам
     if sum_log_vals != 0:
@@ -33,15 +46,13 @@ def get_shap(model, df):
             feature_effects.append({
                 "name": feature_names[i],
                 "value": data_values[i],
-                "effect_rubles": effect
+                "effect_rubles": int(effect)
             })
 
     feature_effects.sort(key=lambda x: abs(x["effect_rubles"]), reverse=True)
 
     return {
-        "base_rubles": base_rubles,
-        "rubles_vals": rubles_vals,
-        "data_values": data_values,
-        "feature_names": feature_names,
+        "base_rubles": int(base_rubles),
+        "pred_rubles": int(pred_rubles),
         "effects_list": feature_effects
     }

@@ -60,15 +60,19 @@ def extract_model(row):
 
 
 def special_marks(df):
-    df['Особые отметки'] = df['Особые отметки'].fillna('').str.lower()
+    df['Особые отметки'] = df['Особые отметки'].fillna('нет').str.lower()
     def clean_text(s):
         s = str(s).lower()
         s = re.sub(r'&#\d+;', '', s) # удаляем HTML entities
         s = re.sub(r'[^\w\s]', ' ', s) # удаляем пунктуацию
-        return ' '.join(s.split())
+
+        val_str = s.strip()
+        if val_str in ['none', 'nan', 'null', 'unknown', '']:
+            return 'нет'
+
+        return ' '.join(val_str.split())
 
     df['Особые отметки'] = df['Особые отметки'].apply(clean_text)
-
     return df
 
 
@@ -121,7 +125,6 @@ def create_features(df_input):
     if 'Комплектация' in df.columns and 'Особые отметки' in df.columns:
         text_features = ['Комплектация', 'Особые отметки']
         df['Комплектация'] = df['Комплектация'].astype(str)
-        df['Особые отметки'] = df['Особые отметки'].astype(str)
 
     owners_mapping = {
     '4 и более': 4,

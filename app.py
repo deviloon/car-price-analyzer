@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import time
 from datetime import datetime, date
+from src.shap_utils import get_shap
 from src.feature_eng import create_features
 from src.llm_parser import parse_car_description
 from src.predict import predict_price, load_model
@@ -136,7 +137,7 @@ with col3:
     
     equipment = st.text_input(get_label("equipment", "Комплектация"), value=cd.get("equipment", "Unknown"))
     region = st.text_input(get_label("region", "Регион"), value=cd.get("region", "Unknown"))
-    special_marks = st.text_input(get_label("special_marks", "Особые отметки (негативные)"), value=cd.get("special_marks", None))
+    special_marks = st.text_input(get_label("special_marks", "Особые отметки (негативные)"), value=cd.get("special_marks", 'нет'))
 
 with col4:
     steering_types = ['левый', 'правый']
@@ -162,9 +163,19 @@ with col4:
     
     parsed_body = str(cd.get("body_type", "Unknown"))
     body_type = st.text_input(get_label("body_type", "Тип кузова (вводите с маленькой буквы)"), value=parsed_body)
+st.markdown("---")
+st.subheader('Дополнительно (необязательно)')
+user_target_price = st.number_input(
+    "Введите цену (например, из объявления) в рублях, чтобы проверить её на адекватность:",
+    min_value = 0,
+    value = 0,
+    step = 50000
+)
+
+
 
 st.markdown("---")
-if st.button("Рассчитать цену", use_container_width=True):
+if st.button("Рассчитать цену и влияние факторов", use_container_width=True):
     st.session_state.llm_fields = []
     raw_data = {
         "Марка": [brand],
@@ -181,7 +192,7 @@ if st.button("Рассчитать цену", use_container_width=True):
         "Привод": [drive_type],
         "Комплектация": [equipment],
         "Регион": [region],
-        "Особые отметки": [special_marks.strip() if special_marks and special_marks.strip() else None],
+        "Особые отметки": [special_marks],
         "Руль": [steering_wheel],
         "Цвет": [color],
         "Владельцы": [owners_count],
@@ -193,12 +204,61 @@ if st.button("Рассчитать цену", use_container_width=True):
     result = predict_price(model, df_prepared, mape=0.1539)
 
     price_str = f"{result['price']:,}".replace(",", " ") + " ₽"
-
     delta_val = result['upper_bound'] - result['price']
     delta_str = f"± {delta_val:,}".replace(",", " ") + f" ₽ (Погрешность ~{result['mape_percent']}%)"
 
     st.success("Расчет успешно завершен!")
     st.metric(label="Рекомендуемая цена", value=price_str, delta=delta_str, delta_color="off")
+
+    if user_target_price > 0:
+        if user_target_price < result['lower_bound']:
+            st.error(
+                "**Внимание! Цена сильно занижена относительно рыночной!**\n"
+                "Рекомендуем тщательно проверить автомобиль на скрытые физические повреждения, "
+                "скрученный пробег, а также юридическую чистоту и залоги."
+            )
+        else:
+            st.info("Введенная вами цена находится в пределах рыночной нормы.")
+
+    st.markdown("---")
+    st.subheader("Анализ факторов ценообразования (SHAP)")
+    with st.spinner('Интерпретация модели...'):
+        try:
+            shap_data = get_shap(model, df_prepared)
+            effects = shap_data["effects_list"]
+
+            chart_df = pd.DataFrame({
+                "Параметр": [f"{item['name']} ({item['value']})" for item in effects],
+                "Влияние на цену (₽)": [item["effect_rubles"] for item in effects]
+            }).sort_values(by="Влияние на цену (₽)") # Сортируем снизу вверх
+
+            st.write("Каждый параметр либо увеличивал (вправо), либо уменьшал (влево) базовую рыночную цену:")
+            # Горизонтальный столбчатый график
+            st.bar_chart(chart_df, x="Параметр", y="Влияние на цену (₽)", horizontal=True)
+
+            st.write('Детальный разбор влияния в рублях:')
+            top_effects = effects[:10]
+            other_effects = effects[10:]
+
+            def format_effect(item):
+                sign = "🟢 +" if item["effect_rubles"] > 0 else "🔴 -"
+                val_str = str(item['value']) if item['value'] is not None else 'Unknown'
+                return f"{sign}**{item['name']}** ({val_str}) изменил цену на **{item['effect_rubles']:,}** ₽".replace(",", " ")
+            for item in top_effects:
+                st.write(format_effect(item))
+            with st.expander("Остальные признаки, которые меньше всего повлияли на цену"):
+                for item in other_effects:
+                    st.write(format_effect(item))
+
+        except Exception as e:
+            st.warning(f"Не удалось построить график SHAP: {e}")
+
+
+
+
+
+
+
 
     with st.expander("Посмотреть сгенерированные признаки (для отладки)"):
         st.dataframe(df_prepared)
