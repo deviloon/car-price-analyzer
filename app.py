@@ -29,9 +29,16 @@ if "llm_fields" not in st.session_state:
 
 # Функция для подсветки названий полей
 def get_label(key, base_name):
-    # Проверяем, нашел ли ИИ этот конкретный ключ и не пустой ли он
-    if key in st.session_state.car_data and st.session_state.car_data[key] not in [None, ""]:
-        return f"{base_name} ✨"
+    if key in st.session_state.car_data:
+        val = st.session_state.car_data[key]
+        
+        # Список значений, которые считаются "ИИ ничего не нашел"
+        invalid_values = [None, "", "Unknown", "unknown", "null", "nan", "None"]
+        
+        # Подсвечиваем ЗВЕЗДОЧКОЙ только если ИИ действительно нашел реальное значение
+        if val not in invalid_values:
+            return f"{base_name} ✨"
+            
     return base_name
 
 st.title('Оценка стоимости автомобиля')
@@ -153,7 +160,7 @@ with col4:
             pass
     ad_date = st.date_input(get_label("ad_date", "Дата размещения объявления"), value=init_date, max_value=date.today(), min_value=date(1999, 1, 1))
     
-    parsed_body = str(cd.get("body_type", "Unknown")).lower()
+    parsed_body = str(cd.get("body_type", "Unknown"))
     body_type = st.text_input(get_label("body_type", "Тип кузова (вводите с маленькой буквы)"), value=parsed_body)
 
 st.markdown("---")
