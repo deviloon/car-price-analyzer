@@ -15,7 +15,12 @@ def predict_price(model, df_prepared, mape=0.1539):
     """
     Делает предсказание и рассчитывает диапазон цен.
     """
-    price_pred = model.predict(df_prepared)
+    text_features = ['Комплектация']
+    cat_model = model.regressor_
+    cat_indices = cat_model.get_cat_feature_indices()
+    feature_names = cat_model.feature_names_
+    cat_features = [feature_names[i] for i in cat_indices]
+    price_pred = model.predict(df_prepared, cat_features=cat_features, text_features=text_features)
     
     # Если возвращается массив, берем первое значение
     if isinstance(price_pred, np.ndarray):

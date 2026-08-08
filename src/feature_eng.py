@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime
+import re
 
 def get_brand_tier(brand):
     brand = str(brand).lower().strip()
@@ -57,6 +58,26 @@ def extract_model(row):
             
     return full_name
 
+
+def special_marks(df):
+    df['Особые отметки'] = df['Особые отметки'].fillna('').str.lower()
+    text = df['Особые отметки']
+    df['Флаг: требуется ремонт'] = text.str.contains('ремонт|не на ходу').astype(int)
+    df['Флаг: юридические проблемы'] = text.str.contains('запрет|ограничен|арест|залог').astype(int)
+    df['Флаг: проблемы с документами'] = text.str.contains('документ|без докумен|нет докумен|отсутств|утерян|нет стс|нет птс').astype(int)
+    df['Флаг: иностранный учет'] = text.str.contains('армени|киргиз|kz').astype(int)
+
+    def clean_text(s):
+        s = str(s).lower()
+        s = re.sub(r'&#\d+;', '', s) # удаляем HTML entities
+        s = re.sub(r'[^\w\s]', ' ', s) # удаляем пунктуацию
+        return ' '.join(s.split())
+
+    df['Особые отметки'] = df['Особые отметки'].apply(clean_text)
+
+    return df
+
+
 def create_features(df_input):
     df = df_input.copy()
     if 'Метка' in df.columns:
@@ -85,6 +106,8 @@ def create_features(df_input):
 
     df['Год размещения'] = df['Год размещения'].fillna(datetime.now().year)
 
+    df = special_marks(df)
+
     if 'Год' in df.columns:
         df['Возраст'] = df['Год размещения'] - df['Год']
         if 'Пробег' in df.columns:
@@ -97,12 +120,14 @@ def create_features(df_input):
     cols_to_drop = ['Возраст', 'Название машины']
     df = df.drop(columns=[c for c in cols_to_drop if c in df.columns])
 
-    cat_cols = df.select_dtypes(include=['object', 'string']).columns.to_list()
-    df[cat_cols] = df[cat_cols].astype('category')
+    cat_cols = df.select_dtypes(include=['object', 'string', 'category']).columns.to_list()
+    for col in cat_cols:
+        df[col] = df[col].astype('category')
 
-    if 'Комплектация' in df.columns:
-        text_features = ['Комплектация']
+    if 'Комплектация' in df.columns and 'Особые отметки' in df.columns:
+        text_features = ['Комплектация', 'Особые отметки']
         df['Комплектация'] = df['Комплектация'].astype(str)
+        df['Особые отметки'] = df['Особые отметки'].astype(str)
 
     owners_mapping = {
     '4 и более': 4,
