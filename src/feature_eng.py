@@ -61,12 +61,6 @@ def extract_model(row):
 
 def special_marks(df):
     df['Особые отметки'] = df['Особые отметки'].fillna('').str.lower()
-    text = df['Особые отметки']
-    df['Флаг: требуется ремонт'] = text.str.contains('ремонт|не на ходу').astype(int)
-    df['Флаг: юридические проблемы'] = text.str.contains('запрет|ограничен|арест|залог').astype(int)
-    df['Флаг: проблемы с документами'] = text.str.contains('документ|без докумен|нет докумен|отсутств|утерян|нет стс|нет птс').astype(int)
-    df['Флаг: иностранный учет'] = text.str.contains('армени|киргиз|kz').astype(int)
-
     def clean_text(s):
         s = str(s).lower()
         s = re.sub(r'&#\d+;', '', s) # удаляем HTML entities
@@ -123,7 +117,7 @@ def create_features(df_input):
     cat_cols = df.select_dtypes(include=['object', 'string', 'category']).columns.to_list()
     for col in cat_cols:
         df[col] = df[col].astype('category')
-
+    df['Комплектация'] = df['Комплектация'].astype(object).fillna('')
     if 'Комплектация' in df.columns and 'Особые отметки' in df.columns:
         text_features = ['Комплектация', 'Особые отметки']
         df['Комплектация'] = df['Комплектация'].astype(str)
@@ -143,6 +137,5 @@ def create_features(df_input):
     }
 
     df['Владельцы'] = df['Владельцы'].replace(owners_mapping)
-    df['Есть особые отметки'] = df['Особые отметки'].notna().astype(int)
 
     return df
