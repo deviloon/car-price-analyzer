@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import time
+import plotly.graph_objects as go
 from datetime import datetime, date
 from src.shap_utils import get_shap
 from src.feature_eng import create_features
@@ -227,18 +228,44 @@ if st.button("Рассчитать цену и влияние факторов",
             shap_data = get_shap(model, df_prepared)
             effects = shap_data["effects_list"]
 
-            chart_df = pd.DataFrame({
-                "Параметр": [f"{item['name']} ({item['value']})" for item in effects],
-                "Влияние на цену (₽)": [item["effect_rubles"] for item in effects]
-            }).sort_values(by="Влияние на цену (₽)") # Сортируем снизу вверх
+            top_n = 10
+            chart_effects = effects[:top_n]
+            rest_effects = effects[top_n:]
+            rest_sum = sum(item['effect_rubles'] for item in rest_effects)
 
-            st.write("Каждый параметр либо увеличивал (вправо), либо уменьшал (влево) базовую рыночную цену:")
-            # Горизонтальный столбчатый график
-            st.bar_chart(chart_df, x="Параметр", y="Влияние на цену (₽)", horizontal=True)
+            x_labels = ["Базовая (средняя) цена"] + [item['name'] for item in chart_effects]
+            y_values = [shap_data["base_rubles"]] + [item["effect_rubles"] for item in chart_effects]
+            measures = ["absolute"] + ["relative"] * len(chart_effects)
+            if rest_sum != 0:
+                x_labels.append("Остальные")
+                y_values.append(rest_sum)
+                measures.append("relative")
+                
+            x_labels.append("Итоговая цена")
+            y_values.append(shap_data["pred_rubles"])
+            measures.append("total")
 
-            st.write('Детальный разбор влияния в рублях:')
-            top_effects = effects[:10]
-            other_effects = effects[10:]
+            fig = go.Figure(go.Waterfall(
+                name='Влияние',
+                orientation='v',
+                measure=measures,
+                x=x_labels,
+                textposition='outside',
+                text=[f"{v/1000:+.0f}k" if m == "relative" else f"{v/1000:.0f}k" for v, m in zip(y_values, measures)],
+                y=y_values,
+                connector={"line": {"color": "rgb(63, 63, 63)"}},
+                decreasing={"marker": {"color": "#FF4B4B"}}, # Красный для минуса
+                increasing={"marker": {"color": "#00CC96"}}, # Зеленый для плюса
+                totals={"marker": {"color": "#3b82f6"}}      # Синий для итогов
+            ))
+            fig.update_layout(
+                title="Как формировалась цена (каскадная диаграмма)",
+                showlegend=False,
+                margin=dict(l=10, r=10, t=40, b=10),
+                height=400
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
 
             def format_effect(item):
                 sign = "🟢 +" if item["effect_rubles"] > 0 else "🔴 -"
