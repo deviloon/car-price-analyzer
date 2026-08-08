@@ -29,7 +29,8 @@ if "llm_fields" not in st.session_state:
 
 # Функция для подсветки названий полей
 def get_label(key, base_name):
-    if key in st.session_state.llm_fields:
+    # Проверяем, нашел ли ИИ этот конкретный ключ и не пустой ли он
+    if key in st.session_state.car_data and st.session_state.car_data[key] not in [None, ""]:
         return f"{base_name} ✨"
     return base_name
 
@@ -54,49 +55,110 @@ with st.expander('Шаг 1: Автозаполнение формы с помо�
                     st.write("Извлечение параметров автомобиля...")
                     parsed = parse_car_description(user_description, api_key)
                     st.write("Заполнение формы...")
-                    st.session_state.car_data = parsed
+                    st.session_state.car_data = {str(k).lower(): v for k, v in parsed.items()}
                     status.update(label="Данные успешно распознаны! Проверьте форму ниже.", state="complete", expanded=False)
                 except Exception as e:
                     status.update(label="Произошла ошибка при обращении к ИИ", state="error", expanded=False)
                     st.error(f"Ошибка: {e}")
 
-
+st.markdown("---")
+st.subheader('Шаг 2: Проверка и корректировка параметров')
+if st.session_state.llm_fields:
+    st.info('Поля, которые заполнил искусственный интеллект, отмечены значком ✨. Проверьте их правильность!')
+cd = st.session_state.car_data
 
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    brand = st.text_input("Марка", value="lada")
-    car_name = st.text_input("Название машины", value="lada granta")
-    year = st.number_input("Год выпуска", max_value=current_year, value=2015, step=1)
+    brand = st.text_input(get_label("brand", "Марка"), value=cd.get("brand", "lada"))
+    car_name = st.text_input(get_label("car_name", "Название машины"), value=cd.get("car_name", "lada granta"))
+    
+    init_year = int(cd.get("year", 2015)) if cd.get("year") else 2015
+    year = st.number_input(get_label("year", "Год выпуска"), max_value=current_year, value=init_year, step=1)
     if year < 1990:
-        st.warning(f'Внимание! Модель плохо предсказывает цену автомобилей с таким годом выпуска. Будьте внимательны и учтите, что предсказанная цена будет менее точна, чем обычно.')
-    mileage = st.number_input("Пробег (км)", min_value=0, value=40000, step=1000)
+        st.warning('Внимание! Модель плохо предсказывает цену автомобилей с таким годом выпуска. Будьте внимательны и учтите, что предсказанная цена будет менее точна, чем обычно.')
+        
+    init_mileage = int(cd.get("mileage", 40000)) if cd.get("mileage") else 40000
+    mileage = st.number_input(get_label("mileage", "Пробег (км)"), min_value=0, value=init_mileage, step=1000)
     if mileage > 999999:
-        st.warning(f'Внимание! Модель плохо предсказывает ццену автомобилей с таким пробегом. Будьте внимательны и учтите, что предсказанная цена будет менее точна, чем обычно.')
-    engine_type = st.selectbox("Тип двигателя", ['бензин', 'дизель', 'электро', 'газ', 'газ/бензин', 'ГБО'])
+        st.warning('Внимание! Модель плохо предсказывает цену автомобилей с таким пробегом. Будьте внимательны и учтите, что предсказанная цена будет менее точна, чем обычно.')
+        
+    eng_types = ['бензин', 'дизель', 'электро', 'газ', 'газ/бензин', 'ГБО']
+    parsed_eng = str(cd.get("engine_type", "бензин")).lower()
+    eng_idx = eng_types.index(parsed_eng) if parsed_eng in eng_types else 0
+    engine_type = st.selectbox(get_label("engine_type", "Тип двигателя"), eng_types, index=eng_idx)
+
 with col2:
-    power = st.number_input("Мощность (л.с.)", min_value=0, value=106, step=1)
-    engine_vol = st.number_input("Объем двигателя (л)", min_value=0.0, value=1.6, step=0.1)
-    owner = st.selectbox("Владелец", ["Частное лицо", "Дилер/Салон"])
-    restyling = st.number_input("Рестайлинг", value=None, step=1, min_value=0)
-    generation = st.number_input("Поколение", value=None, step=1, min_value=0)
+    init_power = int(cd.get("power", 106)) if cd.get("power") else 106
+    power = st.number_input(get_label("power", "Мощность (л.с.)"), min_value=0, value=init_power, step=1)
+    
+    init_vol = float(cd.get("engine_vol", 1.6)) if cd.get("engine_vol") else 1.6
+    engine_vol = st.number_input(get_label("engine_vol", "Объем двигателя (л)"), min_value=0.0, value=init_vol, step=0.1)
+    
+    owner_types = ["Частное лицо", "Дилер/Салон"]
+    parsed_owner = str(cd.get("owner", "Частное лицо")).lower()
+    owner_idx = 1 if ("дилер" in parsed_owner or "салон" in parsed_owner or "фирма" in parsed_owner) else 0
+    owner = st.selectbox(get_label("owner", "Владелец"), owner_types, index=owner_idx)
+
+    init_rest = int(cd.get("restyling")) if cd.get("restyling") and str(cd.get("restyling")).isdigit() else None
+    restyling = st.number_input(get_label("restyling", "Рестайлинг"), value=init_rest, step=1, min_value=0)
+    
+    init_gen = int(cd.get("generation")) if cd.get("generation") and str(cd.get("generation")).isdigit() else None
+    generation = st.number_input(get_label("generation", "Поколение"), value=init_gen, step=1, min_value=0)
 
 with col3:
-    transmission = st.selectbox("Коробка передач", ['АКПП', 'МКПП', 'CVT', 'РКПП', 'редуктор'])
-    drive_type = st.selectbox("Привод", ['передний', 'задний', '4WD', 'двигатель посередине (MID)'])
-    equipment = st.text_input("Комплектация", value='Unknown')
-    region = st.text_input("Регион", value='Unknown')
-    special_marks = st.text_input("Особые отметки (негативные)", value=None)
+    trans_types = ['АКПП', 'МКПП', 'CVT', 'РКПП', 'редуктор']
+    parsed_trans = str(cd.get("transmission", "АКПП")).upper()
+    if "АВТОМАТ" in parsed_trans: parsed_trans = "АКПП"
+    elif "МЕХАНИКА" in parsed_trans: parsed_trans = "МКПП"
+    elif "ВАРИАТОР" in parsed_trans: parsed_trans = "CVT"
+    elif "РОБОТ" in parsed_trans: parsed_trans = "РКПП"
+    trans_idx = trans_types.index(parsed_trans) if parsed_trans in trans_types else 0
+    transmission = st.selectbox(get_label("transmission", "Коробка передач"), trans_types, index=trans_idx)
+    drive_types = ['передний', 'задний', '4WD', 'двигатель посередине (MID)']
+    parsed_drive = str(cd.get("drive_type", "передний")).lower()
+    if "полн" in parsed_drive or "4wd" in parsed_drive or "4x4" in parsed_drive:
+        drive_idx = 2
+    elif "задн" in parsed_drive:
+        drive_idx = 1
+    elif "сред" in parsed_drive or "mid" in parsed_drive:
+        drive_idx = 3
+    else:
+        drive_idx = 0
+    drive_type = st.selectbox(get_label("drive_type", "Привод"), drive_types, index=drive_idx)
+    
+    equipment = st.text_input(get_label("equipment", "Комплектация"), value=cd.get("equipment", "Unknown"))
+    region = st.text_input(get_label("region", "Регион"), value=cd.get("region", "Unknown"))
+    special_marks = st.text_input(get_label("special_marks", "Особые отметки (негативные)"), value=cd.get("special_marks", None))
 
 with col4:
-    steering_wheel = st.selectbox("Руль", ['левый', 'правый'])
-    color = st.text_input("Цвет (вводите через букву \"е\", не \"ё\")", value="черный")
-    owners_count = st.selectbox("Владельцы", ['1', '2', '3', '4 и более'])
-    ad_date = st.date_input("Дата размещения объявления", value=date.today(), max_value=date.today(), min_value=date(1999, 1, 1))
-    body_type = st.text_input("Тип кузова (вводите с маленькой буквы)", value='Unknown')
+    steering_types = ['левый', 'правый']
+    parsed_wheel = str(cd.get("steering_wheel", "левый")).lower()
+    wheel_idx = 1 if "прав" in parsed_wheel else 0
+    steering_wheel = st.selectbox(get_label("steering_wheel", "Руль"), steering_types, index=wheel_idx)
 
-st.markdown("---") # Разделительная линия
+    parsed_color = str(cd.get("color", "черный")).replace("ё", "е").lower()
+    color = st.text_input(get_label("color", "Цвет (вводите через букву \"е\", не \"ё\")"), value=parsed_color)
+    
+    owners_list = ['1', '2', '3', '4 и более']
+    parsed_owners = str(cd.get("owners_count", "1"))
+    owners_idx = owners_list.index(parsed_owners) if parsed_owners in owners_list else 0
+    owners_count = st.selectbox(get_label("owners_count", "Владельцы"), owners_list, index=owners_idx)
+
+    init_date = date.today()
+    if cd.get("ad_date"):
+        try:
+            init_date = datetime.strptime(str(cd.get("ad_date")), "%Y-%m-%d").date()
+        except Exception:
+            pass
+    ad_date = st.date_input(get_label("ad_date", "Дата размещения объявления"), value=init_date, max_value=date.today(), min_value=date(1999, 1, 1))
+    
+    parsed_body = str(cd.get("body_type", "Unknown")).lower()
+    body_type = st.text_input(get_label("body_type", "Тип кузова (вводите с маленькой буквы)"), value=parsed_body)
+
+st.markdown("---")
 if st.button("Рассчитать цену", use_container_width=True):
+    st.session_state.llm_fields = []
     raw_data = {
         "Марка": [brand],
         "Название машины": [car_name],
