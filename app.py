@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as st
+import pandas as pd
 import numpy as np
 import datetime
 from src.feature_eng import create_features
@@ -38,8 +38,8 @@ with col2:
     power = st.number_input("Мощность (л.с.)", min_value=0, value=106, step=1)
     engine_vol = st.number_input("Объем двигателя (л)", min_value=0.0, value=1.6, step=0.1)
     seller_type = st.selectbox("Тип продавца", ["Частное лицо", "Дилер/Салон"])
-    restyling = st.number_input("Рестайлинг", value=np.nan, step=0)
-    generation = st.number_input("Поколение", value=np.nan, step=0)
+    restyling = st.number_input("Рестайлинг", value=np.nan, step=1, min_value=0)
+    generation = st.number_input("Поколение", value=np.nan, step=1, min_value=0)
 
 with col3:
     transmission = st.selectbox("Коробка передач", ['АКПП', 'МКПП', 'CVT', 'РКПП', 'редуктор'])
@@ -56,3 +56,31 @@ with col4:
     body_type = st.text_input("Тип кузова (вводите с маленькой буквы)", value='Unknown')
 
 st.markdown("---") # Разделительная линия
+if st.button("Рассчитать цену", use_container_width=True):
+    raw_data = {
+        "Марка": [brand],
+        "Название машины": [car_name],
+        "Год": [year],
+        "Пробег": [mileage],
+        "Тип двигателя": [engine_type],
+        "Мощность": [power],
+        "Объем двигателя": [engine_vol],
+        "Тип продавца": [seller_type],
+        "Рестайлинг": [restyling],
+        "Поколение": [generation],
+        "Коробка передач": [transmission],
+        "Привод": [drive_type],
+        "Комплектация": [equipment],
+        "Регион": [region],
+        "Особые отметки": [special_marks],
+        "Руль": [steering_wheel],
+        "Цвет": [color],
+        "Владельцы": [owners_count],
+        "Дата размещения объявления": [ad_date],
+        "Тип кузова": [body_type]
+    }
+    df_raw = pd.DataFrame(raw_data)
+    df_prepared = create_features(df_raw)
+    result = predict_price(model, df_prepared, mape=0.1539)
+
+    price_str = f"{result['price']:,}".replace(",", " ") + " ₽"
