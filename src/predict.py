@@ -2,7 +2,7 @@ import joblib
 import numpy as np
 import os
 
-def load_model(model_path="models/best_model.pkl"):
+def load_model(model_path="models/best_catboost_model.pkl"):
     """
     Загружает модель, сохраненную через joblib.
     """
