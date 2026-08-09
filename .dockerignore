@@ -1,0 +1,10 @@
+__pycache__/
+.git/
+.venv/
+venv/
+data/
+notebooks/
+researches/
+.streamlit/secrets.toml
+models/
+diary/

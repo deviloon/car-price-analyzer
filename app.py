@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import time
+import os
 import plotly.graph_objects as go
 from datetime import datetime, date
 from src.shap_utils import get_shap
@@ -11,7 +12,7 @@ from src.predict import predict_price, load_model
 
 current_year = datetime.now().year
 
-st.set_page_config(page_title='Оценка стоимости авто', page_icon="🚗", layout='centered')
+st.set_page_config(page_title='Оценка стоимости авто', page_icon="🚗", layout='wide')
 
 @st.cache_resource
 def init_model():
@@ -23,7 +24,7 @@ except FileNotFoundError as e:
     st.error(f'Ошибка: {e}')
     st.stop() # Останавливаем сайт, если модели нет
 
-api_key = st.secrets.get("OPENROUTER_API_KEY", "")
+api_key = st.secrets.get("OPENROUTER_API_KEY", "") or os.environ.get("OPENROUTER_API_KEY", "")
 if 'car_data' not in st.session_state:
     st.session_state.car_data = {}
 if "llm_fields" not in st.session_state:
@@ -176,7 +177,7 @@ user_target_price = st.number_input(
 
 
 st.markdown("---")
-if st.button("Рассчитать цену и влияние факторов", use_container_width=True):
+if st.button("Рассчитать цену и влияние факторов", width='content'):
     st.session_state.llm_fields = []
     raw_data = {
         "Марка": [brand],
@@ -228,54 +229,76 @@ if st.button("Рассчитать цену и влияние факторов",
             shap_data = get_shap(model, df_prepared)
             effects = shap_data["effects_list"]
 
-            top_n = 10
-            chart_effects = effects[:top_n]
-            rest_effects = effects[top_n:]
-            rest_sum = sum(item['effect_rubles'] for item in rest_effects)
+            feature_groups = {
+                "📊 Пробег, возраст и износ": ["Пробег", "Пробег за год", "Год", "Возраст", "Год размещения"],
+                "⚙️ Двигатель и динамика": ["Мощность", "Объем двигателя", "Литровая мощность", "Тип двигателя", "Коробка передач", "Привод"],
+                "📜 История и владельцы": ["Владельцы", "Тип продавца", "Особые отметки", "Владелец"],
+                "🚘 Бренд и модель": ["Марка", "Модель", "Название машины", "Класс бренда"],
+                "🎨 Кузов и комплектация": ["Тип кузова", "Цвет", "Рестайлинг", "Поколение", "Комплектация", "Руль"],
+                "📍 Прочее (География и др.)": ["Регион"]
+            }
+            feat_to_group = {}
+            for grp_name, feats in feature_groups.items():
+                for f in feats:
+                    feat_to_group[f] = grp_name
+            grouped_effects = {}
+            for item in effects:
+                grp = feat_to_group.get(item['name'], '📍 Прочее (География и др.)')
+                if grp not in grouped_effects:
+                    grouped_effects[grp] = []
+                grouped_effects[grp].append(item)
 
-            x_labels = ["Базовая (средняя) цена"] + [item['name'] for item in chart_effects]
-            y_values = [shap_data["base_rubles"]] + [item["effect_rubles"] for item in chart_effects]
-            measures = ["absolute"] + ["relative"] * len(chart_effects)
-            if rest_sum != 0:
-                x_labels.append("Остальные")
-                y_values.append(rest_sum)
-                measures.append("relative")
-                
-            x_labels.append("Итоговая цена")
-            y_values.append(shap_data["pred_rubles"])
-            measures.append("total")
+            group_totals = {}
+            for grp_name, items in grouped_effects.items():
+                group_totals[grp_name] = sum(i['effect_rubles'] for i in items)
 
+            active_groups = {k: v for k, v in group_totals.items() if v != 0}
+            # Укорачиваем названия групп для подписей оси X, чтобы красиво влезали
+            short_labels = [k.split(" ", 1)[-1] for k in active_groups.keys()] # Убираем эмодзи для оси X
+
+            x_labels = ["Базовая цена"] + short_labels + ["Итоговая цена"]
+            y_values = [shap_data["base_rubles"]] + list(active_groups.values()) + [shap_data["pred_rubles"]]
+            measures = ["absolute"] + ["relative"] * len(active_groups) + ["total"]
             fig = go.Figure(go.Waterfall(
-                name='Влияние',
-                orientation='v',
+                name="Влияние групп",
+                orientation="v",
                 measure=measures,
                 x=x_labels,
-                textposition='outside',
+                textposition="outside",
                 text=[f"{v/1000:+.0f}k" if m == "relative" else f"{v/1000:.0f}k" for v, m in zip(y_values, measures)],
                 y=y_values,
                 connector={"line": {"color": "rgb(63, 63, 63)"}},
-                decreasing={"marker": {"color": "#FF4B4B"}}, # Красный для минуса
-                increasing={"marker": {"color": "#00CC96"}}, # Зеленый для плюса
-                totals={"marker": {"color": "#3b82f6"}}      # Синий для итогов
+                decreasing={"marker": {"color": "#FF4B4B"}},
+                increasing={"marker": {"color": "#00CC96"}},
+                totals={"marker": {"color": "#3b82f6"}}
             ))
+            
             fig.update_layout(
-                title="Как формировалась цена (каскадная диаграмма)",
+                title="Формирование цены по категориям факторов",
                 showlegend=False,
                 margin=dict(l=10, r=10, t=40, b=10),
-                height=400
+                height=420
             )
             st.plotly_chart(fig, use_container_width=True)
             
+            st.write("Детальный разбор по категориям:")
 
             def format_effect(item):
-                sign = "🟢 +" if item["effect_rubles"] > 0 else "🔴 -"
-                val_str = str(item['value']) if item['value'] is not None else 'Unknown'
-                return f"{sign}**{item['name']}** ({val_str}) изменил цену на **{item['effect_rubles']:,}** ₽".replace(",", " ")
-            for item in top_effects:
-                st.write(format_effect(item))
-            with st.expander("Остальные признаки, которые меньше всего повлияли на цену"):
-                for item in other_effects:
-                    st.write(format_effect(item))
+                sign = "🟢 +" if item["effect_rubles"] > 0 else "🔴 "
+                val_str = str(item["value"]) if item["value"] is not None else "Не указано"
+                return f"{sign}**{item['name']}** ({val_str}): **{item['effect_rubles']:,}** ₽".replace(",", " ")
+
+            for grp_name, items in grouped_effects.items():
+                # Считаем суммарное влияние всей группы
+                grp_total = sum(i["effect_rubles"] for i in items)
+                sign = "+" if grp_total > 0 else ""
+                
+                # Заголовок expander'а с суммой
+                expander_title = f"{grp_name} ({sign}{grp_total:,} ₽)".replace(",", " ")
+                
+                with st.expander(expander_title, expanded=False):
+                    for item in items:
+                        st.write(format_effect(item))
 
         except Exception as e:
             st.warning(f"Не удалось построить график SHAP: {e}")

@@ -1,4 +1,3 @@
-import shap
 import numpy as np
 from catboost import Pool
 import pandas as pd
