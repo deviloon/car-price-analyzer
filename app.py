@@ -29,6 +29,8 @@ if 'car_data' not in st.session_state:
     st.session_state.car_data = {}
 if "llm_fields" not in st.session_state:
     st.session_state.llm_fields = [] # Здесь будем хранить ключи, которые нашел ИИ
+if "form_ver" not in st.session_state:
+    st.session_state.form_ver = 0  # Счетчик
 
 # Функция для подсветки названий полей
 def get_label(key, base_name):

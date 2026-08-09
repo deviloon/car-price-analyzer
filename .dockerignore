@@ -1,9 +1,13 @@
-__pycache__/
+# Игнорируем гитовские папки и окружения
 .git/
+.gitignore
 .venv/
 venv/
+
+# Игнорируем локальный файл секретов
+.streamlit/secrets.toml
+
+# Игнорируем тяжелое сырье для обучения (модель уже обучена в models/)
 data/
 notebooks/
 researches/
-.streamlit/secrets.toml
-diary/
