@@ -6,5 +6,4 @@ data/
 notebooks/
 researches/
 .streamlit/secrets.toml
-models/
 diary/
