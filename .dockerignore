@@ -1,9 +1,10 @@
-__pycache__/
 .git/
+.gitignore
 .venv/
 venv/
+.streamlit/secrets.toml
+
 data/
 notebooks/
 researches/
-.streamlit/secrets.toml
 diary/
