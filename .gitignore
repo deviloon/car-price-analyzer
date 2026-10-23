@@ -183,3 +183,12 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# IDE
+.vscode/
+.idea/
+
+# Артефакты обучения и экспериментов
+catboost_info/
+mlruns/
+*.db
