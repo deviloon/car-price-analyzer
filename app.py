@@ -22,7 +22,12 @@ except FileNotFoundError as e:
     st.error(f'Ошибка: {e}')
     st.stop() # Останавливаем сайт, если модели нет
 
-gigachat_credentials = st.secrets.get("GIGACHAT_CREDENTIALS", "") or os.environ.get("GIGACHAT_CREDENTIALS", "")
+try:
+    gigachat_credentials = st.secrets.get("GIGACHAT_CREDENTIALS", "")
+except FileNotFoundError:
+    # A fresh clone has no .streamlit/secrets.toml; AI parsing stays disabled.
+    gigachat_credentials = ""
+gigachat_credentials = gigachat_credentials or os.environ.get("GIGACHAT_CREDENTIALS", "")
 if 'car_data' not in st.session_state:
     st.session_state.car_data = {}
 if "llm_fields" not in st.session_state:
