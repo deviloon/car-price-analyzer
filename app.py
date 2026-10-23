@@ -6,7 +6,7 @@ from datetime import datetime, date
 from src.shap_utils import get_shap
 from src.feature_eng import create_features
 from src.llm_parser import parse_car_description
-from src.predict import predict_price, load_model, MODEL_MAPE
+from src.predict import predict_price, load_model, MODEL_MAPE, DEFAULT_MODEL_PATH
 
 current_year = datetime.now().year
 
@@ -14,7 +14,7 @@ st.set_page_config(page_title='Оценка стоимости авто', page_i
 
 @st.cache_resource
 def init_model():
-    return load_model('models/best_catboost_model.pkl')
+    return load_model(DEFAULT_MODEL_PATH)
 
 try:
     model = init_model()

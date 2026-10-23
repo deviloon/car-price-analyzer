@@ -1,11 +1,15 @@
 import joblib
 import numpy as np
 import os
+from pathlib import Path
 
 MODEL_MAPE = 0.1539
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_MODEL_PATH = BASE_DIR / "models" / "best_catboost_model.pkl"
 
-def load_model(model_path="models/best_catboost_model.pkl"):
+
+def load_model(model_path=DEFAULT_MODEL_PATH):
     """
     Загружает модель, сохраненную через joblib.
     """
