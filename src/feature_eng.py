@@ -137,6 +137,10 @@ def create_features(df_input):
     '3': 3
     }
 
-    df['Владельцы'] = df['Владельцы'].replace(owners_mapping)
+    df['Владельцы'] = (
+        df['Владельцы'].astype(object)
+        .replace(owners_mapping)
+        .infer_objects(copy=False)
+    )
 
     return df

@@ -1,12 +1,12 @@
-pandas
-numpy
-scikit-learn
+pandas==2.3.3
+numpy==2.4.6
+scikit-learn==1.9.0
 category_encoders
 pyarrow
 joblib
 
 # Модели и подбор гиперпараметров
-catboost
+catboost==1.2.10
 xgboost
 lightgbm
 optuna
