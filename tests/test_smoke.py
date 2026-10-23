@@ -1,0 +1,54 @@
+import unittest
+
+import pandas as pd
+
+from src.feature_eng import create_features
+from src.predict import DEFAULT_MODEL_PATH, MODEL_MAPE, load_model, predict_price
+
+
+class PredictionSmokeTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if not DEFAULT_MODEL_PATH.exists():
+            raise unittest.SkipTest(f"model not found: {DEFAULT_MODEL_PATH}")
+        cls.model = load_model(DEFAULT_MODEL_PATH)
+
+    def test_sample_prediction(self):
+        raw_data = {
+            "Марка": ["lada"],
+            "Название машины": ["lada granta"],
+            "Год": [2015],
+            "Пробег": [40000],
+            "Тип двигателя": ["бензин"],
+            "Мощность": [106],
+            "Объем двигателя": [1.6],
+            "Владелец": ["Частное лицо"],
+            "Рестайлинг": [0],
+            "Поколение": [0],
+            "Коробка передач": ["АКПП"],
+            "Привод": ["передний"],
+            "Комплектация": ["Unknown"],
+            "Регион": ["Unknown"],
+            "Особые отметки": ["нет"],
+            "Руль": ["левый"],
+            "Цвет": ["черный"],
+            "Владельцы": ["1"],
+            "Дата размещения объявления": ["2026-10-23"],
+            "Тип кузова": ["седан"],
+        }
+
+        prepared = create_features(pd.DataFrame(raw_data))
+        result = predict_price(self.model, prepared, mape=MODEL_MAPE)
+
+        self.assertEqual(
+            set(result),
+            {"price", "lower_bound", "upper_bound", "mape_percent"},
+        )
+        self.assertGreater(result["price"], 0)
+        self.assertLessEqual(result["lower_bound"], result["price"])
+        self.assertGreaterEqual(result["upper_bound"], result["price"])
+        self.assertEqual(result["mape_percent"], int(MODEL_MAPE * 100))
+
+
+if __name__ == "__main__":
+    unittest.main()
