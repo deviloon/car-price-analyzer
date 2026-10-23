@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import time
 import os
 import plotly.graph_objects as go
 from datetime import datetime, date
@@ -63,7 +62,6 @@ with st.expander('Шаг 1: Автозаполнение формы с помо�
             with st.status("Нейросеть извлекает характеристики...", expanded=True) as status:
                 st.write("Подключение к GigaChat...")
                 try:
-                    time.sleep(0.2) 
                     st.write("Извлечение параметров автомобиля...")
                     parsed = parse_car_description(user_description, gigachat_credentials)
                     st.write("Заполнение формы...")
@@ -220,6 +218,12 @@ if st.button("Рассчитать цену и влияние факторов",
                 "**Внимание! Цена сильно занижена относительно рыночной!**\n"
                 "Рекомендуем тщательно проверить автомобиль на скрытые физические повреждения, "
                 "скрученный пробег, а также юридическую чистоту и залоги."
+            )
+        elif user_target_price > result['upper_bound']:
+            st.error(
+                "**Внимание! Цена сильно завышена относительно рыночной!**\n"
+                "Рекомендуем убедиться, что наценка оправдана реальным состоянием авто, "
+                "а не переплатой за чужой тюнинг, недавний ремонт или завышенными ожиданиями продавца."
             )
         else:
             st.info("Введенная вами цена находится в пределах рыночной нормы.")
