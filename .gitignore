@@ -17,6 +17,8 @@ lib/
 lib64/
 .streamlit/secrets.toml
 parts/
+diary/
+/.streamlit/*
 sdist/
 var/
 /data/*

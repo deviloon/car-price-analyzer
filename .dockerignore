@@ -1,13 +1,40 @@
-# Игнорируем гитовские папки и окружения
+# Git и локальные окружения
 .git/
 .gitignore
 .venv/
 venv/
+env/
 
-# Игнорируем локальный файл секретов
+# Локальные секреты
 .streamlit/secrets.toml
 
-# Игнорируем тяжелое сырье для обучения (модель уже обучена в models/)
+# Тяжелые данные и исследовательские материалы
 data/
 notebooks/
 researches/
+diary/
+images/
+best_model/
+
+# Артефакты обучения и экспериментов
+models/mlruns/
+models/mlflow.db
+models/catboost_info/
+models/*.cbm
+models/lightgbm.pkl
+models/xgboost.pkl
+models/test.py
+models/test.ipynb
+models/*.txt
+models/__pycache__/
+
+# MLflow, CatBoost и прочий мусор
+mlruns/
+catboost_info/
+*.db
+__pycache__/
+*.py[cod]
+
+# Настройки IDE
+.vscode/
+.devcontainer/
