@@ -1,12 +1,14 @@
 import numpy as np
 from catboost import Pool
-import pandas as pd
+
 
 def get_shap(model, df):
     """
     Рассчитывает SHAP-значения, переводит их из log1p в рубли
     и готовит данные для интерактивного графика и текстового отчета.
     """
+    df = df.copy()
+
     for col in df.select_dtypes(include=['category']).columns:
         df[col] = df[col].astype(str)
 

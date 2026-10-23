@@ -1,13 +1,12 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import os
 import plotly.graph_objects as go
 from datetime import datetime, date
 from src.shap_utils import get_shap
 from src.feature_eng import create_features
 from src.llm_parser import parse_car_description
-from src.predict import predict_price, load_model
+from src.predict import predict_price, load_model, MODEL_MAPE
 
 current_year = datetime.now().year
 
@@ -28,8 +27,6 @@ if 'car_data' not in st.session_state:
     st.session_state.car_data = {}
 if "llm_fields" not in st.session_state:
     st.session_state.llm_fields = [] # Здесь будем хранить ключи, которые нашел ИИ
-if "form_ver" not in st.session_state:
-    st.session_state.form_ver = 0  # Счетчик
 
 # Функция для подсветки названий полей
 def get_label(key, base_name):
@@ -66,6 +63,7 @@ with st.expander('Шаг 1: Автозаполнение формы с помо�
                     parsed = parse_car_description(user_description, gigachat_credentials)
                     st.write("Заполнение формы...")
                     st.session_state.car_data = {str(k).lower(): v for k, v in parsed.items()}
+                    st.session_state.llm_fields = list(st.session_state.car_data.keys())
                     status.update(label="Данные успешно распознаны! Проверьте форму ниже.", state="complete", expanded=False)
                 except Exception as e:
                     status.update(label="Произошла ошибка при обращении к ИИ", state="error", expanded=False)
@@ -203,7 +201,7 @@ if st.button("Рассчитать цену и влияние факторов",
     }
     df_raw = pd.DataFrame(raw_data)
     df_prepared = create_features(df_raw)
-    result = predict_price(model, df_prepared, mape=0.1539)
+    result = predict_price(model, df_prepared, mape=MODEL_MAPE)
 
     price_str = f"{result['price']:,}".replace(",", " ") + " ₽"
     delta_val = result['upper_bound'] - result['price']

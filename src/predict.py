@@ -2,6 +2,9 @@ import joblib
 import numpy as np
 import os
 
+MODEL_MAPE = 0.1539
+
+
 def load_model(model_path="models/best_catboost_model.pkl"):
     """
     Загружает модель, сохраненную через joblib.
@@ -11,7 +14,7 @@ def load_model(model_path="models/best_catboost_model.pkl"):
     
     return joblib.load(model_path)
 
-def predict_price(model, df_prepared, mape=0.1539):
+def predict_price(model, df_prepared, mape=MODEL_MAPE):
     """
     Делает предсказание и рассчитывает диапазон цен.
     """

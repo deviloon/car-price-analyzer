@@ -1,42 +1,21 @@
 import pandas as pd
-import seaborn as sns
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import RobustScaler
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, RobustScaler
-from sklearn.linear_model import Ridge
-from category_encoders.cat_boost import CatBoostEncoder
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.model_selection import GridSearchCV, KFold, RandomizedSearchCV
-import copy
-from sklearn.model_selection import cross_val_score
 import optuna
 from sklearn.model_selection import cross_validate
-import xgboost as xgb
-import pyarrow
-import phik
 import lightgbm as lgb
-from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error, mean_squared_error
-import catboost
 from optuna.visualization import (
     plot_optimization_history,
     plot_param_importances,
     plot_parallel_coordinate
 )
-from catboost import CatBoostRegressor
 import mlflow.sklearn
-from phik.report import plot_correlation_matrix
-import plotly
 import mlflow
 import time
 from scipy.stats import randint, uniform, loguniform
 import os
 from datetime import datetime
-import category_encoders as ce
-import joblib
 
 
 

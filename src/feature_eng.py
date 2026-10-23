@@ -121,10 +121,8 @@ def create_features(df_input):
     cat_cols = df.select_dtypes(include=['object', 'string', 'category']).columns.to_list()
     for col in cat_cols:
         df[col] = df[col].astype('category')
-    df['Комплектация'] = df['Комплектация'].astype(object).fillna('')
-    if 'Комплектация' in df.columns and 'Особые отметки' in df.columns:
-        text_features = ['Комплектация', 'Особые отметки']
-        df['Комплектация'] = df['Комплектация'].astype(str)
+    if 'Комплектация' in df.columns:
+        df['Комплектация'] = df['Комплектация'].astype(object).fillna('').astype(str)
 
     owners_mapping = {
     '4 и более': 4,
