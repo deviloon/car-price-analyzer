@@ -57,7 +57,7 @@ with st.expander('Шаг 1: Автозаполнение формы с помо�
     )
     if st.button('Распарсить через ИИ'):
         if not gigachat_credentials:
-            st.error("Ключ GIGACHAT_CREDENTIALS не найден в файле .streamlit/secrets.toml")
+            st.error("Ключ GIGACHAT_CREDENTIALS не найден. Добавьте его в .streamlit/secrets.toml или в переменную окружения GIGACHAT_CREDENTIALS.")
         elif not user_description.strip():
             st.warning("Пожалуйста, введите описание автомобиля.")
         else:
