@@ -24,7 +24,7 @@ except FileNotFoundError as e:
     st.error(f'Ошибка: {e}')
     st.stop() # Останавливаем сайт, если модели нет
 
-api_key = st.secrets.get("OPENROUTER_API_KEY", "") or os.environ.get("OPENROUTER_API_KEY", "")
+gigachat_credentials = st.secrets.get("GIGACHAT_CREDENTIALS", "") or os.environ.get("GIGACHAT_CREDENTIALS", "")
 if 'car_data' not in st.session_state:
     st.session_state.car_data = {}
 if "llm_fields" not in st.session_state:
@@ -55,17 +55,17 @@ with st.expander('Шаг 1: Автозаполнение формы с помо�
         placeholder="Например: Продаю ладу гранту 15 года, 2 владельца, пробег 40к, механика, 106 сил"
     )
     if st.button('Распарсить через ИИ'):
-        if not api_key:
-            st.error("Ключ OPENROUTER_API_KEY не найден в файле .streamlit/secrets.toml")
+        if not gigachat_credentials:
+            st.error("Ключ GIGACHAT_CREDENTIALS не найден в файле .streamlit/secrets.toml")
         elif not user_description.strip():
             st.warning("Пожалуйста, введите описание автомобиля.")
         else:
             with st.status("Нейросеть извлекает характеристики...", expanded=True) as status:
-                st.write("Подключение к OpenRouter...")
+                st.write("Подключение к GigaChat...")
                 try:
                     time.sleep(0.2) 
                     st.write("Извлечение параметров автомобиля...")
-                    parsed = parse_car_description(user_description, api_key)
+                    parsed = parse_car_description(user_description, gigachat_credentials)
                     st.write("Заполнение формы...")
                     st.session_state.car_data = {str(k).lower(): v for k, v in parsed.items()}
                     status.update(label="Данные успешно распознаны! Проверьте форму ниже.", state="complete", expanded=False)

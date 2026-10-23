@@ -1,18 +1,24 @@
 pandas
-seaborn
 numpy
-matplotlib
 scikit-learn
 category_encoders
-optuna
-xgboost
 pyarrow
-phik
-lightgbm
+joblib
+
+# Модели и подбор гиперпараметров
 catboost
-plotly
+xgboost
+lightgbm
+optuna
 mlflow
 scipy
-joblib
+phik
+
+# Визуализация и приложение
+matplotlib
+seaborn
+plotly
 streamlit
-requests
+
+# LLM-парсер
+gigachat
