@@ -6,7 +6,7 @@ from datetime import datetime, date
 from src.shap_utils import get_shap
 from src.feature_eng import create_features
 from src.llm_parser import parse_car_description
-from src.predict import predict_price, load_model, MODEL_MAPE, DEFAULT_MODEL_PATH
+from src.predict import DEFAULT_MODEL_PATH, load_model, load_interval_models, predict_price
 
 current_year = datetime.now().year
 
@@ -16,8 +16,13 @@ st.set_page_config(page_title='Оценка стоимости авто', page_i
 def init_model():
     return load_model(DEFAULT_MODEL_PATH)
 
+@st.cache_resource
+def init_interval_models():
+    return load_interval_models()
+
 try:
     model = init_model()
+    interval_models = init_interval_models()
 except FileNotFoundError as e:
     st.error(f'Ошибка: {e}')
     st.stop() # Останавливаем сайт, если модели нет
@@ -206,14 +211,15 @@ if st.button("Рассчитать цену и влияние факторов",
     }
     df_raw = pd.DataFrame(raw_data)
     df_prepared = create_features(df_raw)
-    result = predict_price(model, df_prepared, mape=MODEL_MAPE)
+    result = predict_price(model, df_prepared, interval_models)
 
     price_str = f"{result['price']:,}".replace(",", " ") + " ₽"
-    delta_val = result['upper_bound'] - result['price']
-    delta_str = f"± {delta_val:,}".replace(",", " ") + f" ₽ (Погрешность ~{result['mape_percent']}%)"
-
     st.success("Расчет успешно завершен!")
-    st.metric(label="Рекомендуемая цена", value=price_str, delta=delta_str, delta_color="off")
+    st.metric(label="Рекомендуемая цена", value=price_str)
+    st.caption(
+        f"Реалистичный диапазон ({result['coverage_percent']}%): "
+        f"{result['lower_bound']:,} – {result['upper_bound']:,} ₽".replace(",", " ")
+    )
 
     if user_target_price > 0:
         if user_target_price < result['lower_bound']:

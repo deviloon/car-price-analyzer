@@ -3,7 +3,9 @@ import unittest
 import pandas as pd
 
 from src.feature_eng import create_features
-from src.predict import DEFAULT_MODEL_PATH, MODEL_MAPE, load_model, predict_price
+from src.predict import (
+    DEFAULT_MODEL_PATH, load_model, load_interval_models, predict_price,
+)
 
 
 class PredictionSmokeTest(unittest.TestCase):
@@ -12,6 +14,10 @@ class PredictionSmokeTest(unittest.TestCase):
         if not DEFAULT_MODEL_PATH.exists():
             raise unittest.SkipTest(f"model not found: {DEFAULT_MODEL_PATH}")
         cls.model = load_model(DEFAULT_MODEL_PATH)
+        try:
+            cls.interval_models = load_interval_models()
+        except FileNotFoundError as e:
+            raise unittest.SkipTest(f"interval models not found: {e}")
 
     def test_sample_prediction(self):
         raw_data = {
@@ -46,16 +52,16 @@ class PredictionSmokeTest(unittest.TestCase):
         self.assertEqual(prepared['Поколение'].iloc[0], '0.0')
         self.assertEqual(prepared['Рестайлинг'].iloc[0], '0.0')
 
-        result = predict_price(self.model, prepared, mape=MODEL_MAPE)
+        result = predict_price(self.model, prepared, self.interval_models)
 
         self.assertEqual(
             set(result),
-            {"price", "lower_bound", "upper_bound", "mape_percent"},
+            {"price", "lower_bound", "upper_bound", "coverage_percent"},
         )
         self.assertGreater(result["price"], 0)
-        self.assertLessEqual(result["lower_bound"], result["price"])
+        self.assertLessEqual(result["lower_bound"], result["price"])   # интервал накрывает цену
         self.assertGreaterEqual(result["upper_bound"], result["price"])
-        self.assertEqual(result["mape_percent"], int(MODEL_MAPE * 100))
+        self.assertEqual(result["coverage_percent"], 90)
 
 
 if __name__ == "__main__":

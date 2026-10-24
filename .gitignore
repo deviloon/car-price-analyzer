@@ -196,6 +196,8 @@ mlruns/
 # Модельные артефакты (основная модель остаётся в git)
 models/*.pkl
 !models/best_catboost_model.pkl
+!models/cqr_models.pkl
 models/*.cbm
 models/test.py
 models/test.ipynb
+tests/

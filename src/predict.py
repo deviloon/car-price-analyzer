@@ -7,7 +7,8 @@ MODEL_MAPE = 0.1539
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_MODEL_PATH = BASE_DIR / "models" / "best_catboost_model.pkl"
-
+CQR_BUNDLE_PATH = BASE_DIR / "models" / "cqr_models.pkl"
+INTERVAL_COVERAGE_PERCENT = 90 
 
 def load_model(model_path=DEFAULT_MODEL_PATH):
     """
@@ -18,7 +19,19 @@ def load_model(model_path=DEFAULT_MODEL_PATH):
     
     return joblib.load(model_path)
 
-def predict_price(model, df_prepared, mape=MODEL_MAPE):
+def load_interval_models():
+    """
+    CQR-интервалы: две квантильные CatBoost (alpha=0.05/0.95) на log(цены),
+    обучены в models/04_interval.py. delta — конформальная поправка с
+    калибровочной выборки.
+    """
+    if not CQR_BUNDLE_PATH.exists():
+        raise FileNotFoundError(
+            f"Не найден {CQR_BUNDLE_PATH}. Пересоздается запуском models/04_interval.py."
+        )
+    return joblib.load(CQR_BUNDLE_PATH)
+
+def predict_price(model, df_prepared, interval_models):
     """
     Делает предсказание и рассчитывает диапазон цен.
     """
@@ -40,17 +53,23 @@ def predict_price(model, df_prepared, mape=MODEL_MAPE):
     else:
         price = price_pred
         
-    lower_bound = price * (1 - (2*mape))
-    upper_bound = price * (1 + mape)
-    
-    # Округляем до тысяч рублей для красивого вывода
+    cqr = interval_models  # dict: model_low, model_high, delta
+    # Квантильные модели обучены на log(цены): их выход — логарифм,
+    # поэтому возвращаемся в рубли экспонентой (как в models/04_interval.py)
+    q_low = float(cqr["model_low"].predict(df_final)[0])
+    q_high = float(cqr["model_high"].predict(df_final)[0])
+    lower = np.exp(q_low - cqr["delta"])
+    upper = np.exp(q_high + cqr["delta"])
+
     price_rounded = round(price, -3)
-    lower_rounded = round(lower_bound, -3)
-    upper_rounded = round(upper_bound, -3)
-    
+    # нижнюю границу округляем вниз, верхнюю — вверх: округление не должно
+    # сужать интервал
+    lower_rounded = int(np.floor(lower / 1000) * 1000)
+    upper_rounded = int(np.ceil(upper / 1000) * 1000)
+
     return {
         "price": int(price_rounded),
-        "lower_bound": int(lower_rounded),
-        "upper_bound": int(upper_rounded),
-        "mape_percent": int(mape * 100)
+        "lower_bound": lower_rounded,
+        "upper_bound": upper_rounded,
+        "coverage_percent": INTERVAL_COVERAGE_PERCENT,
     }
