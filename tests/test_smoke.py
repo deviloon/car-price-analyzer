@@ -22,16 +22,16 @@ class PredictionSmokeTest(unittest.TestCase):
     def test_sample_prediction(self):
         raw_data = {
             "Марка": ["lada"],
-            "Название машины": ["lada granta"],
+            "Название машины": ["Лада Гранта"],
             "Год": [2015],
             "Пробег": [40000],
             "Тип двигателя": ["бензин"],
-            "Мощность": [106],
+            "Мощность": [87],
             "Объем двигателя": [1.6],
             "Владелец": ["Частное лицо"],
-            "Рестайлинг": [0],
-            "Поколение": [0],
-            "Коробка передач": ["АКПП"],
+            "Рестайлинг": [1],
+            "Поколение": [1],
+            "Коробка передач": ["МКПП"],
             "Привод": ["передний"],
             "Комплектация": ["Unknown"],
             "Регион": ["Unknown"],
@@ -45,12 +45,11 @@ class PredictionSmokeTest(unittest.TestCase):
 
         prepared = create_features(pd.DataFrame(raw_data))
 
-        # Якорь 2025: модель обучена на объявлениях 2025 года, дата из формы
-        # (в примере выше — 2026 год) не должна попадать в признаки.
         self.assertEqual(prepared['Год размещения'].iloc[0], 2025)
-        # Формат категорий как в обучении: число с одним знаком после точки.
-        self.assertEqual(prepared['Поколение'].iloc[0], '0.0')
-        self.assertEqual(prepared['Рестайлинг'].iloc[0], '0.0')
+        self.assertEqual(prepared['Поколение'].iloc[0], '1.0')
+        self.assertEqual(prepared['Рестайлинг'].iloc[0], '1.0')
+        # «Модель» должна попасть в словарь обучения, а не остаться всей строкой
+        self.assertEqual(prepared['Модель'].astype(str).iloc[0], 'Гранта')
 
         result = predict_price(self.model, prepared, self.interval_models)
 

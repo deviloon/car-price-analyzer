@@ -58,7 +58,7 @@ st.write('Введите параметры автомобиля, чтобы у�
 with st.expander('Шаг 1: Автозаполнение формы с помощью ИИ', expanded=True):
     user_description = st.text_area(
         'Введите описание автомобиля своими словами:',
-        placeholder="Например: Продаю ладу гранту 15 года, 2 владельца, пробег 40к, механика, 106 сил"
+        placeholder="Например: Продаю ладу гранту 15 года, 2 владельца, пробег 40к, механика, 87 сил"
     )
     if st.button('Распарсить через ИИ'):
         if not gigachat_credentials:
@@ -89,10 +89,10 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     brand = st.text_input(get_label("brand", "Марка"), value=cd.get("brand", "lada"))
-    car_name = st.text_input(get_label("car_name", "Название машины"), value=cd.get("car_name", "lada granta"))
+    car_name = st.text_input(get_label("car_name", "Название машины"), value=cd.get("car_name", "Лада Гранта"))
     
     init_year = int(cd.get("year", 2015)) if cd.get("year") else 2015
-    year = st.number_input(get_label("year", "Год выпуска"), max_value=current_year, value=init_year, step=1)
+    year = st.number_input(get_label("year", "Год выпуска"), max_value=2025, value=init_year, step=1)
     if year < 1990:
         st.warning('Внимание! Модель плохо предсказывает цену автомобилей с таким годом выпуска. Будьте внимательны и учтите, что предсказанная цена будет менее точна, чем обычно.')
         
@@ -107,7 +107,7 @@ with col1:
     engine_type = st.selectbox(get_label("engine_type", "Тип двигателя"), eng_types, index=eng_idx)
 
 with col2:
-    init_power = int(cd.get("power", 106)) if cd.get("power") else 106
+    init_power = int(cd.get("power", 87)) if cd.get("power") else 87
     power = st.number_input(get_label("power", "Мощность (л.с.)"), min_value=0, value=init_power, step=1)
     
     init_vol = float(cd.get("engine_vol", 1.6)) if cd.get("engine_vol") else 1.6
@@ -118,15 +118,15 @@ with col2:
     owner_idx = 1 if ("дилер" in parsed_owner or "салон" in parsed_owner or "фирма" in parsed_owner) else 0
     owner = st.selectbox(get_label("owner", "Владелец"), owner_types, index=owner_idx)
 
-    init_rest = int(cd.get("restyling")) if cd.get("restyling") and str(cd.get("restyling")).isdigit() else None
+    init_rest = int(cd.get("restyling")) if cd.get("restyling") and str(cd.get("restyling")).isdigit() else 1
     restyling = st.number_input(get_label("restyling", "Рестайлинг"), value=init_rest, step=1, min_value=0)
     
-    init_gen = int(cd.get("generation")) if cd.get("generation") and str(cd.get("generation")).isdigit() else None
+    init_gen = int(cd.get("generation")) if cd.get("generation") and str(cd.get("generation")).isdigit() else 1
     generation = st.number_input(get_label("generation", "Поколение"), value=init_gen, step=1, min_value=0)
 
 with col3:
     trans_types = ['АКПП', 'МКПП', 'CVT', 'РКПП', 'редуктор']
-    parsed_trans = str(cd.get("transmission", "АКПП")).upper()
+    parsed_trans = str(cd.get("transmission", "МКПП")).upper()
     if "АВТОМАТ" in parsed_trans: parsed_trans = "АКПП"
     elif "МЕХАНИКА" in parsed_trans: parsed_trans = "МКПП"
     elif "ВАРИАТОР" in parsed_trans: parsed_trans = "CVT"
@@ -171,7 +171,7 @@ with col4:
             pass
     ad_date = st.date_input(get_label("ad_date", "Дата размещения объявления"), value=init_date, max_value=date.today(), min_value=date(1999, 1, 1))
     
-    parsed_body = str(cd.get("body_type", "Unknown"))
+    parsed_body = str(cd.get("body_type", "седан"))
     body_type = st.text_input(get_label("body_type", "Тип кузова (вводите с маленькой буквы)"), value=parsed_body)
 st.markdown("---")
 st.subheader('Дополнительно (необязательно)')
@@ -220,6 +220,12 @@ if st.button("Рассчитать цену и влияние факторов",
         f"Реалистичный диапазон ({result['coverage_percent']}%): "
         f"{result['lower_bound']:,} – {result['upper_bound']:,} ₽".replace(",", " ")
     )
+    if result['price'] < 150000:
+        st.warning(
+            'Внимание! Прогонз ниже минимальной цены обучающих данных. Проверьте\n' \
+            'правильность введённых данных. Если вы уверены в корректности ваших данных -\n' \
+            'этот автомобиль сложно оценить автоматически.'
+            )
 
     if user_target_price > 0:
         if user_target_price < result['lower_bound']:

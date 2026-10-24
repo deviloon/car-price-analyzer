@@ -200,4 +200,3 @@ models/*.pkl
 models/*.cbm
 models/test.py
 models/test.ipynb
-tests/
