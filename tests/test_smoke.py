@@ -38,6 +38,14 @@ class PredictionSmokeTest(unittest.TestCase):
         }
 
         prepared = create_features(pd.DataFrame(raw_data))
+
+        # Якорь 2025: модель обучена на объявлениях 2025 года, дата из формы
+        # (в примере выше — 2026 год) не должна попадать в признаки.
+        self.assertEqual(prepared['Год размещения'].iloc[0], 2025)
+        # Формат категорий как в обучении: число с одним знаком после точки.
+        self.assertEqual(prepared['Поколение'].iloc[0], '0.0')
+        self.assertEqual(prepared['Рестайлинг'].iloc[0], '0.0')
+
         result = predict_price(self.model, prepared, mape=MODEL_MAPE)
 
         self.assertEqual(

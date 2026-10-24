@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-from datetime import datetime
 import re
 
 def get_brand_tier(brand):
@@ -76,6 +75,17 @@ def special_marks(df):
     return df
 
 
+def _format_generation_value(v):
+    # Категории обучения записаны как числа с одним знаком после точки
+    # ('1.0'...'12.0') плюс 'Unknown', поэтому int из формы нужно приводить к ним.
+    if pd.isna(v) or str(v).strip() == '':
+        return 'Unknown'
+    try:
+        return f'{float(v):.1f}'
+    except (TypeError, ValueError):
+        return str(v)
+
+
 def create_features(df_input):
     df = df_input.copy()
     if 'Метка' in df.columns:
@@ -95,14 +105,12 @@ def create_features(df_input):
     else:
         df['Тип продавца'] = 'Unknown'
 
+    # Модель обучена только на объявлениях 2025 года, поэтому в признаки всегда
+    # уходит якорный год. Дата из формы остаётся для UX, но модель её не видит:
+    # сдвиг рынка во времени закрывает рыночный коэффициент, а не признаки.
+    df['Год размещения'] = 2025
     if 'Дата размещения объявления' in df.columns:
-        df['Дата размещения объявления'] = pd.to_datetime(df['Дата размещения объявления'], format='mixed', errors='coerce')
-        df['Год размещения'] = df['Дата размещения объявления'].dt.year
         df = df.drop(columns=['Дата размещения объявления'])
-    elif 'Год размещения' not in df.columns:
-        df['Год размещения'] = datetime.now().year # Берем текущий год, если даты нет
-
-    df['Год размещения'] = df['Год размещения'].fillna(datetime.now().year)
 
     df = special_marks(df)
 
@@ -113,7 +121,7 @@ def create_features(df_input):
 
     for col in ['Рестайлинг', 'Поколение']:
         if col in df.columns:
-            df[col] = df[col].fillna('Unknown').astype(str)
+            df[col] = df[col].apply(_format_generation_value)
 
     cols_to_drop = ['Возраст', 'Название машины']
     df = df.drop(columns=[c for c in cols_to_drop if c in df.columns])
