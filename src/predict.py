@@ -1,14 +1,30 @@
 import joblib
 import numpy as np
 import os
+import json
 from pathlib import Path
 
 MODEL_MAPE = 0.1539
-
 BASE_DIR = Path(__file__).resolve().parent.parent
+MARKET_COEF_PATH = BASE_DIR / "models" / "market_coefficient.json"
 DEFAULT_MODEL_PATH = BASE_DIR / "models" / "best_catboost_model.pkl"
 CQR_BUNDLE_PATH = BASE_DIR / "models" / "cqr_models.pkl"
 INTERVAL_COVERAGE_PERCENT = 90 
+
+def load_market_coefficient():
+    if not MARKET_COEF_PATH.exists():
+        return None
+    with open(MARKET_COEF_PATH, encoding="utf-8") as f:
+        return json.load(f)
+
+def apply_market_coefficient(result, coef):
+    k = coef["k"]
+    return {
+        **result,
+        "price": int(round(result["price"] * k, -3)),
+        "lower_bound": int(np.floor(result["lower_bound"] * k / 1000) * 1000),
+        "upper_bound": int(np.ceil(result["upper_bound"] * k / 1000) * 1000),
+    }
 
 def load_model(model_path=DEFAULT_MODEL_PATH):
     """

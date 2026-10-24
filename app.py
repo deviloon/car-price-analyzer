@@ -6,7 +6,7 @@ from datetime import datetime, date
 from src.shap_utils import get_shap
 from src.feature_eng import create_features
 from src.llm_parser import parse_car_description
-from src.predict import DEFAULT_MODEL_PATH, load_model, load_interval_models, predict_price
+from src.predict import DEFAULT_MODEL_PATH, load_model, load_interval_models, predict_price, load_market_coefficient, apply_market_coefficient
 
 current_year = datetime.now().year
 
@@ -23,6 +23,7 @@ def init_interval_models():
 try:
     model = init_model()
     interval_models = init_interval_models()
+    market_coef = load_market_coefficient()
 except FileNotFoundError as e:
     st.error(f'Ошибка: {e}')
     st.stop() # Останавливаем сайт, если модели нет
@@ -213,6 +214,8 @@ if st.button("Рассчитать цену и влияние факторов",
     df_raw = pd.DataFrame(raw_data)
     df_prepared = create_features(df_raw)
     result = predict_price(model, df_prepared, interval_models)
+    if market_coef:
+        result = apply_market_coefficient(result, market_coef)
 
     price_str = f"{result['price']:,}".replace(",", " ") + " ₽"
     st.success("Расчет успешно завершен!")
@@ -221,6 +224,10 @@ if st.button("Рассчитать цену и влияние факторов",
         f"Реалистичный диапазон ({result['coverage_percent']}%): "
         f"{result['lower_bound']:,} – {result['upper_bound']:,} ₽".replace(",", " ")
     )
+    if market_coef:
+        computed = market_coef["computed_at"][:10]
+        n = f"{market_coef['n_listings']:,}".replace(",", " ")
+        st.caption(f"Учтена рыночная поправка ×{market_coef['k']:.2f} на {computed} — по {n} свежим объявлениям drom.ru.")
 
     rel_width = (result['upper_bound'] - result['lower_bound']) / result['price']
     if rel_width < 0.45:
@@ -280,7 +287,7 @@ if st.button("Рассчитать цену и влияние факторов",
         try:
             shap_data = get_shap(model, df_prepared)
             effects = shap_data["effects_list"]
-
+    
             feature_groups = {
                 "📊 Пробег, возраст и износ": ["Пробег", "Пробег за год", "Год", "Возраст", "Год размещения"],
                 "⚙️ Двигатель и динамика": ["Мощность", "Объем двигателя", "Литровая мощность", "Тип двигателя", "Коробка передач", "Привод"],

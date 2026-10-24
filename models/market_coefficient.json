@@ -1,0 +1,14 @@
+{
+  "k": 0.9601,
+  "computed_at": "2026-10-24T19:37:31.065860+00:00",
+  "source": "drom parser",
+  "n_listings": 2335,
+  "n_total": 2500,
+  "source_file": "listings_2026-10-23.json",
+  "anchor_year": 2025,
+  "bootstrap_ci": [
+    0.9536,
+    0.9682
+  ],
+  "clamped": false
+}
