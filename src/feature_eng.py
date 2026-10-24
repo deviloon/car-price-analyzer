@@ -1,6 +1,40 @@
+import json
+import re
+from pathlib import Path
+
 import pandas as pd
 import numpy as np
-import re
+
+# Канонический словарь категорий обучения: нормализованная форма -> точное
+# значение из данных. CatBoost чувствителен к регистру, поэтому «Toyota» или
+# «гранта» без приведения становятся незнакомыми категориями и ломают прогноз.
+# Пересобирается скриптом scripts/build_category_vocab.py.
+VOCAB_PATH = Path(__file__).resolve().parent.parent / "models" / "category_vocab.json"
+BRAND_ALIASES = {"лада": "lada", "уаз": "uaz", "газ": "gaz", "ваз": "vaz", "москвич": "moskvich"}
+
+
+def _load_category_vocab():
+    try:
+        with open(VOCAB_PATH, encoding="utf-8") as f:
+            vocab = json.load(f)
+    except FileNotFoundError:
+        return {}
+    vocab.setdefault("Марка", {}).update(BRAND_ALIASES)
+    return vocab
+
+
+CATEGORY_VOCAB = _load_category_vocab()
+
+
+def _norm_text(s):
+    return re.sub(r"\s+", " ", str(s).strip().lower().replace("ё", "е"))
+
+
+def canonicalize(df, col):
+    """Заменяет значение на категорию из обучающих данных, если находится совпадение."""
+    vocab = CATEGORY_VOCAB.get(col, {})
+    if col in df.columns and vocab:
+        df[col] = df[col].map(lambda v: vocab.get(_norm_text(v), v) if pd.notna(v) else v)
 
 def get_brand_tier(brand):
     brand = str(brand).lower().strip()
@@ -93,7 +127,9 @@ def create_features(df_input):
         
     df['Название машины'] = df.get('Название машины', '').astype(str)
     df['Марка'] = df.get('Марка', '').astype(str)
+    canonicalize(df, 'Марка')
     df['Модель'] = df.apply(extract_model, axis=1)
+    canonicalize(df, 'Модель')
     df['Класс бренда'] = df['Марка'].apply(get_brand_tier)
 
     if 'Мощность' in df.columns and 'Объем двигателя' in df.columns:
@@ -125,6 +161,9 @@ def create_features(df_input):
 
     cols_to_drop = ['Возраст', 'Название машины']
     df = df.drop(columns=[c for c in cols_to_drop if c in df.columns])
+
+    for col in ['Регион', 'Цвет', 'Тип кузова']:
+        canonicalize(df, col)
 
     cat_cols = df.select_dtypes(include=['object', 'string', 'category']).columns.to_list()
     for col in cat_cols:
