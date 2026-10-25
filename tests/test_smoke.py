@@ -43,13 +43,6 @@ class PredictionSmokeTest(unittest.TestCase):
             "Тип кузова": ["седан"],
         }
 
-        def test_market_coefficient_math(self):
-            from src.predict import apply_market_coefficient
-            base = {"price": 500000, "lower_bound": 300000, "upper_bound": 700000, "coverage_percent": 90}
-            out = apply_market_coefficient(base, {"k": 0.5})
-            self.assertEqual(out["price"], 250000)
-            self.assertEqual(out["lower_bound"], 150000)
-            self.assertEqual(out["upper_bound"], 350000)
         prepared = create_features(pd.DataFrame(raw_data))
 
         self.assertEqual(prepared['Год размещения'].iloc[0], 2025)
@@ -68,6 +61,14 @@ class PredictionSmokeTest(unittest.TestCase):
         self.assertLessEqual(result["lower_bound"], result["price"])   # интервал накрывает цену
         self.assertGreaterEqual(result["upper_bound"], result["price"])
         self.assertEqual(result["coverage_percent"], 90)
+
+    def test_market_coefficient_math(self):
+        from src.predict import apply_market_coefficient
+        base = {"price": 500000, "lower_bound": 300000, "upper_bound": 700000, "coverage_percent": 90}
+        out = apply_market_coefficient(base, {"k": 0.5})
+        self.assertEqual(out["price"], 250000)
+        self.assertEqual(out["lower_bound"], 150000)
+        self.assertEqual(out["upper_bound"], 350000)
 
 
 if __name__ == "__main__":

@@ -8,8 +8,6 @@ from src.feature_eng import create_features
 from src.llm_parser import parse_car_description
 from src.predict import DEFAULT_MODEL_PATH, load_model, load_interval_models, predict_price, load_market_coefficient, apply_market_coefficient
 
-current_year = datetime.now().year
-
 st.set_page_config(page_title='Оценка стоимости авто', page_icon="🚗", layout='wide')
 
 @st.cache_resource

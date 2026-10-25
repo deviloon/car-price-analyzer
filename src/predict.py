@@ -4,7 +4,6 @@ import os
 import json
 from pathlib import Path
 
-MODEL_MAPE = 0.1539
 BASE_DIR = Path(__file__).resolve().parent.parent
 MARKET_COEF_PATH = BASE_DIR / "models" / "market_coefficient.json"
 DEFAULT_MODEL_PATH = BASE_DIR / "models" / "best_catboost_model.pkl"
